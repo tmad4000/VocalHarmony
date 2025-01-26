@@ -196,4 +196,9 @@ class AudioProcessor {
             this.gainNode.gain.value = Math.max(0, Math.min(0.6, value));
         }
     }
+    setVolume(value) {
+        if (this.gainNode) {
+            this.gainNode.gain.value = Math.max(0, Math.min(1.5, value * 1.5));
+        }
+    }
 }

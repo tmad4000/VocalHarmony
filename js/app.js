@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const harmonySelect = document.getElementById('harmonySelect');
     const antiAliasControl = document.getElementById('antiAliasControl');
     const reverbControl = document.getElementById('reverbControl');
+    const volumeControl = document.getElementById('volumeControl'); // Added volume control
     const status = document.createElement('div');
     status.className = 'status-message';
     document.querySelector('.controls').appendChild(status);
@@ -19,6 +20,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 status.textContent = 'Requesting microphone access...';
 
                 await audioProcessor.initialize();
+
+                // Set initial volume from slider
+                audioProcessor.setVolume(volumeControl.value / 100);
 
                 // Only set up visualization after successful initialization
                 visualizer.setAnalyser(audioProcessor.getAnalyser());
@@ -62,7 +66,10 @@ document.addEventListener('DOMContentLoaded', () => {
         audioProcessor.setHarmonyInterval(parseInt(e.target.value));
     });
 
-    // Add event listeners for new controls
+    volumeControl.addEventListener('input', (e) => {
+        audioProcessor.setVolume(e.target.value / 100);
+    });
+
     antiAliasControl.addEventListener('input', (e) => {
         audioProcessor.setAntiAliasing(parseInt(e.target.value));
     });
