@@ -117,7 +117,9 @@ class AudioProcessor {
                 Tone.Destination
             );
 
+            // Add direct monitoring
             this.mic.connect(this.gainNode);
+            this.gainNode.connect(this.analyser);
 
         } else if (this.harmonyType === 'voice-formant') {
             // Formant-preserved pitch shifting
@@ -136,6 +138,7 @@ class AudioProcessor {
 
             this.mic.connect(this.crossFade.b);
             this.crossFade.b.connect(this.gainNode);
+            this.gainNode.connect(this.analyser);
 
         } else if (this.harmonyType === 'choir') {
             // Enhanced choir setup
@@ -150,6 +153,7 @@ class AudioProcessor {
                 voice.connect(this.gainNode);
             });
 
+            this.gainNode.connect(this.analyser);
             this.gainNode.connect(this.reverb);
             this.reverb.connect(Tone.Destination);
 
@@ -160,6 +164,7 @@ class AudioProcessor {
                 this.mic.connect(this.analyser);
                 this.mic.connect(Tone.Destination);
                 instrument.connect(this.gainNode);
+                this.gainNode.connect(this.analyser);
                 this.gainNode.connect(Tone.Destination);
             }
         }
