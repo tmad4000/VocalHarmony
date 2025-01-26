@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Microphone Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        #level { 
+            width: 300px; 
+            height: 20px; 
+            background: #eee;
+            margin: 20px 0;
+        }
+        #levelBar {
+            width: 0%;
+            height: 100%;
+            background: #4CAF50;
+            transition: width 0.1s;
+        }
+        #status {
+            margin: 10px 0;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>Microphone Test</h1>
+    <button id="startButton">Start Test</button>
+    <div id="status">Ready to test microphone</div>
+    <div id="level">
+        <div id="levelBar"></div>
+    </div>
+
+    <script>
+        const startButton = document.getElementById('startButton');
+        const status = document.getElementById('status');
+        const levelBar = document.getElementById('levelBar');
+        let audioContext;
+        let microphone;
+        let analyser;
+        let isRecording = false;
+
+        startButton.onclick = async () => {
+            if (!isRecording) {
+                try {
+                    startButton.disabled = true;
+                    status.textContent = 'Requesting microphone access...';
+                    
+                    // Initialize audio context
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    
+                    // Create and connect audio nodes
+                    microphone = audioContext.createMediaStreamSource(stream);
+                    analyser = audioContext.createAnalyser();
+                    const gainNode = audioContext.createGain();
+                    gainNode.gain.value = 0.5; // Reduce volume to prevent feedback
+                    
+                    microphone.connect(analyser);
+                    analyser.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    // Start level monitoring
+                    analyser.fftSize = 2048;
+                    const bufferLength = analyser.frequencyBinCount;
+                    const dataArray = new Uint8Array(bufferLength);
+                    
+                    function updateLevel() {
+                        if (!isRecording) return;
+                        
+                        analyser.getByteTimeDomainData(dataArray);
+                        let sum = 0;
+                        for (let i = 0; i < bufferLength; i++) {
+                            const amplitude = (dataArray[i] - 128) / 128;
+                            sum += amplitude * amplitude;
+                        }
+                        const rms = Math.sqrt(sum / bufferLength);
+                        const level = Math.min(100, rms * 400);
+                        levelBar.style.width = level + '%';
+                        
+                        requestAnimationFrame(updateLevel);
+                    }
+                    
+                    updateLevel();
+                    isRecording = true;
+                    startButton.textContent = 'Stop Test';
+                    startButton.disabled = false;
+                    status.textContent = 'Microphone is active - you should hear yourself';
+                    
+                } catch (error) {
+                    console.error('Microphone access error:', error);
+                    let message = 'Error accessing microphone: ';
+                    if (error.name === 'NotAllowedError') {
+                        message += 'Permission denied. Please allow microphone access.';
+                    } else if (error.name === 'NotFoundError') {
+                        message += 'No microphone found. Please connect a microphone.';
+                    } else {
+                        message += error.message;
+                    }
+                    status.textContent = message;
+                    startButton.disabled = false;
+                }
+            } else {
+                // Stop recording
+                if (microphone) {
+                    microphone.disconnect();
+                }
+                if (audioContext) {
+                    audioContext.close();
+                }
+                isRecording = false;
+                startButton.textContent = 'Start Test';
+                status.textContent = 'Test stopped';
+                levelBar.style.width = '0%';
+            }
+        };
+    </script>
+</body>
+</html>
