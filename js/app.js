@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 startButton.textContent = 'Stop';
                 startButton.disabled = false;
-                status.textContent = 'Microphone connected and processing audio';
+                status.textContent = 'A faefaw Microphone connected and processing audio';
                 isProcessing = true;
             } catch (error) {
                 console.error('Failed to start audio processing:', error);

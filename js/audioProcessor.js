@@ -9,9 +9,8 @@ class AudioProcessor {
         this.recordedChunks = [];
         this.isAsyncMode = false;
         this.recordedAudio = null;
-        this.soundTouch = null;
-        this.bufferSize = 2048;
-        this.scriptNode = null;
+        this.pitchShift = null;
+        this.crossFade = null;
     }
 
     async initialize(isAsync = false) {
@@ -21,15 +20,20 @@ class AudioProcessor {
             await Tone.start();
             this.isAsyncMode = isAsync;
 
-            // Create audio context and nodes
-            const audioContext = Tone.context.rawContext;
+            // Create audio nodes with improved formant preservation
             this.mic = new Tone.UserMedia();
-            this.gainNode = new Tone.Gain(0.8);
-            this.analyser = new Tone.Analyser("waveform", this.bufferSize);
+            this.pitchShift = new Tone.PitchShift({
+                pitch: 0,
+                windowSize: 0.05,  // Smaller window size for better formant preservation
+                delayTime: 0.01,   // Small delay for cross-fading
+                feedback: 0,
+                wet: 1
+            }).toDestination();
 
-            // Initialize SoundTouch
-            this.soundTouch = new window.soundtouch.SoundTouch(audioContext.sampleRate);
-            this.scriptNode = audioContext.createScriptProcessor(this.bufferSize, 1, 1);
+            // Add crossfade for smoother transitions
+            this.crossFade = new Tone.CrossFade(0.5);
+            this.gainNode = new Tone.Gain(0.8);
+            this.analyser = new Tone.Analyser("waveform", 2048);
 
             // Set initial pitch shift based on harmony interval
             this.updatePitchShift();
@@ -39,31 +43,17 @@ class AudioProcessor {
 
             if (!this.isAsyncMode) {
                 // Real-time mode connections with formant preservation
-                const inputNode = audioContext.createGain();
-                this.mic.connect(inputNode);
+                this.mic.chain(
+                    this.crossFade.a,
+                    this.pitchShift,
+                    this.gainNode,
+                    this.analyser,
+                    Tone.Destination
+                );
 
-                this.scriptNode.onaudioprocess = (e) => {
-                    const inputBuffer = e.inputBuffer.getChannelData(0);
-                    const outputBuffer = e.outputBuffer.getChannelData(0);
-
-                    // Process audio through SoundTouch
-                    const frame = new Float32Array(inputBuffer);
-                    this.soundTouch.process(frame);
-
-                    // Get processed samples
-                    const processed = new Float32Array(this.bufferSize);
-                    this.soundTouch.receive(processed);
-
-                    // Copy to output
-                    for (let i = 0; i < processed.length; i++) {
-                        outputBuffer[i] = processed[i];
-                    }
-                };
-
-                inputNode.connect(this.scriptNode);
-                this.scriptNode.connect(this.gainNode.input);
-                this.gainNode.connect(this.analyser);
-                this.gainNode.toDestination();
+                // Direct signal path for crossfading
+                this.mic.connect(this.crossFade.b);
+                this.crossFade.b.connect(this.gainNode);
             }
 
             this.isInitialized = true;
@@ -105,47 +95,32 @@ class AudioProcessor {
     async playProcessedAudio() {
         if (!this.recordedAudio) return;
 
-        const audioContext = Tone.context.rawContext;
-        const source = audioContext.createBufferSource();
-        source.buffer = this.recordedAudio.get();
+        const player = new Tone.Player(this.recordedAudio);
 
-        // Create a new SoundTouch instance for playback
-        const playbackSoundTouch = new window.soundtouch.SoundTouch(audioContext.sampleRate);
-        playbackSoundTouch.pitch = this.soundTouch.pitch;
-        playbackSoundTouch.tempo = this.soundTouch.tempo;
+        // Connect through the pitch shifter with formant preservation
+        player.chain(
+            this.crossFade.a,
+            this.pitchShift,
+            this.gainNode,
+            this.analyser,
+            Tone.Destination
+        );
 
-        const scriptNode = audioContext.createScriptProcessor(this.bufferSize, 1, 1);
-        scriptNode.onaudioprocess = (e) => {
-            const inputBuffer = source.buffer.getChannelData(0);
-            const outputBuffer = e.outputBuffer.getChannelData(0);
-
-            const frame = new Float32Array(inputBuffer);
-            playbackSoundTouch.process(frame);
-
-            const processed = new Float32Array(this.bufferSize);
-            playbackSoundTouch.receive(processed);
-
-            for (let i = 0; i < processed.length; i++) {
-                outputBuffer[i] = processed[i];
-            }
-        };
-
-        source.connect(scriptNode);
-        scriptNode.connect(this.gainNode.input);
-        source.start();
+        player.loop = false;
+        await player.start();
 
         return new Promise((resolve) => {
-            source.onended = () => {
-                scriptNode.disconnect();
+            player.onstop = () => {
+                player.dispose();
                 resolve();
             };
         });
     }
 
     updatePitchShift() {
-        if (!this.soundTouch) return;
+        if (!this.pitchShift) return;
 
-        // Calculate pitch shift based on harmony interval
+        // Calculate semitones based on harmony interval
         let semitones = 0;
         switch(parseInt(this.harmonyInterval)) {
             case 1: // No Harmony
@@ -165,10 +140,18 @@ class AudioProcessor {
                 break;
         }
 
-        // Set pitch shift with formant preservation
-        const pitchShift = Math.pow(2, semitones / 12);
-        this.soundTouch.tempo = 1.0;
-        this.soundTouch.pitch = pitchShift;
+        // Configure pitch shifter with optimized formant preservation settings
+        this.pitchShift.set({
+            pitch: semitones,
+            windowSize: 0.05,
+            delayTime: 0.01,
+            feedback: 0,
+            wet: 1
+        });
+
+        // Adjust crossfade based on pitch shift amount
+        const crossfadeAmount = Math.min(0.8, Math.abs(semitones) / 12);
+        this.crossFade.fade.value = crossfadeAmount;
     }
 
     setHarmonyInterval(interval) {
@@ -185,6 +168,7 @@ class AudioProcessor {
     async startProcessing() {
         if (this.mic && !this.isAsyncMode) {
             await Tone.start();
+            await this.mic.open();
         }
     }
 
@@ -195,8 +179,11 @@ class AudioProcessor {
         if (this.gainNode) {
             this.gainNode.disconnect();
         }
-        if (this.scriptNode) {
-            this.scriptNode.disconnect();
+        if (this.pitchShift) {
+            this.pitchShift.disconnect();
+        }
+        if (this.crossFade) {
+            this.crossFade.disconnect();
         }
         this.isInitialized = false;
     }
