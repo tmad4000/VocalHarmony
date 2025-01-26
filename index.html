@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Real-time Voice Harmonizer</title>
     <link rel="stylesheet" href="css/styles.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script src="node_modules/pitchshift/pitchshift.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
@@ -57,22 +57,6 @@
                         <span class="slider-label max">Loud</span>
                     </div>
                 </div>
-                <div class="control-group">
-                    <label for="antiAliasControl">Anti-aliasing:</label>
-                    <div class="slider-container">
-                        <span class="slider-label min">Less</span>
-                        <input type="range" id="antiAliasControl" min="0" max="100" value="100" class="form-range">
-                        <span class="slider-label max">More</span>
-                    </div>
-                </div>
-                <div class="control-group">
-                    <label for="reverbControl">Reverb Mix:</label>
-                    <div class="slider-container">
-                        <span class="slider-label min">Dry</span>
-                        <input type="range" id="reverbControl" min="0" max="100" value="0" class="form-range">
-                        <span class="slider-label max">Wet</span>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -90,105 +74,10 @@
                 <div id="outputLevel" class="level-meter"></div>
             </div>
         </div>
-
-        <!-- Microphone Test Section -->
-        <div id="micTest">
-            <h2>Microphone Test</h2>
-            <button id="micTestButton" class="btn btn-secondary">Start Test</button>
-            <div id="micStatus">Ready to test microphone</div>
-            <div id="level">
-                <div id="levelBar"></div>
-            </div>
-        </div>
     </div>
 
     <script src="js/visualizer.js"></script>
     <script src="js/audioProcessor.js"></script>
     <script src="js/app.js"></script>
-    <script>
-        // Microphone Test Code
-        const micTestButton = document.getElementById('micTestButton');
-        const micStatus = document.getElementById('micStatus');
-        const levelBar = document.getElementById('levelBar');
-        let audioContext;
-        let microphone;
-        let analyser;
-        let isRecording = false;
-
-        micTestButton.onclick = async () => {
-            if (!isRecording) {
-                try {
-                    micTestButton.disabled = true;
-                    micStatus.textContent = 'Requesting microphone access...';
-
-                    // Initialize audio context
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-                    // Create and connect audio nodes
-                    microphone = audioContext.createMediaStreamSource(stream);
-                    analyser = audioContext.createAnalyser();
-                    const gainNode = audioContext.createGain();
-                    gainNode.gain.value = 0.5; // Reduce volume to prevent feedback
-
-                    microphone.connect(analyser);
-                    analyser.connect(gainNode);
-                    gainNode.connect(audioContext.destination);
-
-                    // Start level monitoring
-                    analyser.fftSize = 2048;
-                    const bufferLength = analyser.frequencyBinCount;
-                    const dataArray = new Uint8Array(bufferLength);
-
-                    function updateLevel() {
-                        if (!isRecording) return;
-
-                        analyser.getByteTimeDomainData(dataArray);
-                        let sum = 0;
-                        for (let i = 0; i < bufferLength; i++) {
-                            const amplitude = (dataArray[i] - 128) / 128;
-                            sum += amplitude * amplitude;
-                        }
-                        const rms = Math.sqrt(sum / bufferLength);
-                        const level = Math.min(100, rms * 400);
-                        levelBar.style.width = level + '%';
-
-                        requestAnimationFrame(updateLevel);
-                    }
-
-                    updateLevel();
-                    isRecording = true;
-                    micTestButton.textContent = 'Stop Test';
-                    micTestButton.disabled = false;
-                    micStatus.textContent = 'Microphone is active - you should hear yourself';
-
-                } catch (error) {
-                    console.error('Microphone access error:', error);
-                    let message = 'Error accessing microphone: ';
-                    if (error.name === 'NotAllowedError') {
-                        message += 'Permission denied. Please allow microphone access.';
-                    } else if (error.name === 'NotFoundError') {
-                        message += 'No microphone found. Please connect a microphone.';
-                    } else {
-                        message += error.message;
-                    }
-                    micStatus.textContent = message;
-                    micTestButton.disabled = false;
-                }
-            } else {
-                // Stop recording
-                if (microphone) {
-                    microphone.disconnect();
-                }
-                if (audioContext) {
-                    audioContext.close();
-                }
-                isRecording = false;
-                micTestButton.textContent = 'Start Test';
-                micStatus.textContent = 'Test stopped';
-                levelBar.style.width = '0%';
-            }
-        };
-    </script>
 </body>
 </html>
