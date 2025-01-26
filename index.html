@@ -3,140 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Professional Voice Harmonizer</title>
+    <title>Real-time Voice Harmonizer</title>
     <link rel="stylesheet" href="css/styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pitchy@4.0.7/dist/pitchy.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Mic Test Styles */
+        #micTest { 
+            margin-top: 40px;
+            padding: 20px;
+            border-top: 1px solid #ddd;
+        }
+        #level { 
+            width: 300px; 
+            height: 20px; 
+            background: #eee;
+            margin: 20px 0;
+        }
+        #levelBar {
+            width: 0%;
+            height: 100%;
+            background: #4CAF50;
+            transition: width 0.1s;
+        }
+        #micStatus {
+            margin: 10px 0;
+            color: #666;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
-        <h1>Professional Voice Harmonizer</h1>
+        <h1>Voice Harmonizer</h1>
 
         <div class="controls">
-            <!-- Basic Controls -->
-            <div class="basic-controls">
-                <button id="startButton" class="btn btn-primary">Start Microphone</button>
-
-                <div class="main-controls">
-                    <div class="harmony-controls">
-                        <label for="intervalSelect">Harmony Interval:</label>
-                        <select id="intervalSelect" class="form-select">
-                            <option value="3">Third Above</option>
-                            <option value="4">Fourth Above</option>
-                            <option value="5">Fifth Above</option>
-                            <option value="7">Seventh Above</option>
-                        </select>
-                    </div>
-
-                    <div class="effect-controls">
-                        <div class="control-group">
-                            <label for="antiAliasControl">Anti-aliasing:</label>
-                            <input type="range" id="antiAliasControl" min="0" max="100" value="100" class="form-range">
-                        </div>
-                        <div class="control-group">
-                            <label for="reverbControl">Reverb Mix:</label>
-                            <input type="range" id="reverbControl" min="0" max="100" value="0" class="form-range">
-                        </div>
+            <button id="startButton" class="btn btn-primary">Start Microphone</button>
+            <div class="harmony-controls">
+                <label for="harmonySelect">Harmony Interval:</label>
+                <select id="harmonySelect" class="form-select">
+                    <option value="3">Third Above</option>
+                    <option value="4">Fourth Above</option>
+                    <option value="5">Fifth Above</option>
+                    <option value="7">Seventh Above</option>
+                </select>
+            </div>
+            <div class="effect-controls">
+                <div class="control-group">
+                    <label for="antiAliasControl">Anti-aliasing:</label>
+                    <div class="slider-container">
+                        <span class="slider-label min">Less</span>
+                        <input type="range" id="antiAliasControl" min="0" max="100" value="100" class="form-range">
+                        <span class="slider-label max">More</span>
                     </div>
                 </div>
-            </div>
-
-            <!-- Advanced Controls Toggle -->
-            <button class="advanced-toggle btn btn-outline-success" onclick="toggleAdvancedControls()">
-                <span class="toggle-text">Show Advanced Controls</span>
-                <span class="toggle-icon">▼</span>
-            </button>
-
-            <!-- Advanced Controls Panel -->
-            <div class="advanced-controls" style="display: none;">
-                <div class="processing-controls">
-                    <div class="compression-section">
-                        <h3>Multiband Compression</h3>
-                        <div class="band-controls">
-                            <div class="band low-band">
-                                <h4>Low Band</h4>
-                                <div class="comp-control">
-                                    <label>Threshold</label>
-                                    <input type="range" class="form-range" min="-60" max="0" value="-24" data-band="low" data-param="threshold">
-                                </div>
-                                <div class="comp-control">
-                                    <label>Ratio</label>
-                                    <input type="range" class="form-range" min="1" max="20" value="4" data-band="low" data-param="ratio">
-                                </div>
-                            </div>
-
-                            <div class="band mid-band">
-                                <h4>Mid Band</h4>
-                                <div class="comp-control">
-                                    <label>Threshold</label>
-                                    <input type="range" class="form-range" min="-60" max="0" value="-24" data-band="mid" data-param="threshold">
-                                </div>
-                                <div class="comp-control">
-                                    <label>Ratio</label>
-                                    <input type="range" class="form-range" min="1" max="20" value="4" data-band="mid" data-param="ratio">
-                                </div>
-                            </div>
-
-                            <div class="band high-band">
-                                <h4>High Band</h4>
-                                <div class="comp-control">
-                                    <label>Threshold</label>
-                                    <input type="range" class="form-range" min="-60" max="0" value="-24" data-band="high" data-param="threshold">
-                                </div>
-                                <div class="comp-control">
-                                    <label>Ratio</label>
-                                    <input type="range" class="form-range" min="1" max="20" value="4" data-band="high" data-param="ratio">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="eq-section">
-                        <h3>Parametric EQ</h3>
-                        <div class="eq-controls">
-                            <div class="eq-band">
-                                <label>100 Hz</label>
-                                <input type="range" class="form-range vertical" min="-12" max="12" value="0" data-band="0">
-                            </div>
-                            <div class="eq-band">
-                                <label>400 Hz</label>
-                                <input type="range" class="form-range vertical" min="-12" max="12" value="0" data-band="1">
-                            </div>
-                            <div class="eq-band">
-                                <label>1 kHz</label>
-                                <input type="range" class="form-range vertical" min="-12" max="12" value="0" data-band="2">
-                            </div>
-                            <div class="eq-band">
-                                <label>2.5 kHz</label>
-                                <input type="range" class="form-range vertical" min="-12" max="12" value="0" data-band="3">
-                            </div>
-                            <div class="eq-band">
-                                <label>8 kHz</label>
-                                <input type="range" class="form-range vertical" min="-12" max="12" value="0" data-band="4">
-                            </div>
-                        </div>
-                        <canvas id="eqVisualizer"></canvas>
-                    </div>
-
-                    <div class="spatial-controls">
-                        <h3>Spatial Processing</h3>
-                        <div class="control-group">
-                            <label for="stereoWidth">Stereo Width</label>
-                            <input type="range" id="stereoWidth" class="form-range" min="0" max="100" value="50">
-                        </div>
-                    </div>
-
-                    <div class="dynamics-controls">
-                        <h3>Dynamics</h3>
-                        <div class="control-group">
-                            <label for="noiseGate">Noise Gate</label>
-                            <input type="range" id="noiseGate" class="form-range" min="0" max="100" value="0">
-                        </div>
-                        <div class="control-group">
-                            <label for="inputGain">Input Gain</label>
-                            <input type="range" id="inputGain" class="form-range" min="0" max="100" value="50">
-                        </div>
+                <div class="control-group">
+                    <label for="reverbControl">Reverb Mix:</label>
+                    <div class="slider-container">
+                        <span class="slider-label min">Dry</span>
+                        <input type="range" id="reverbControl" min="0" max="100" value="0" class="form-range">
+                        <span class="slider-label max">Wet</span>
                     </div>
                 </div>
             </div>
@@ -144,15 +70,26 @@
 
         <div class="visualization">
             <canvas id="audioVisualizer"></canvas>
-            <div class="meters">
-                <div class="meter">
-                    <label>Input Level</label>
-                    <div id="inputLevel" class="level-meter"></div>
-                </div>
-                <div class="meter">
-                    <label>Output Level</label>
-                    <div id="outputLevel" class="level-meter"></div>
-                </div>
+        </div>
+
+        <div class="indicators">
+            <div class="indicator">
+                <span>Input Level:</span>
+                <div id="inputLevel" class="level-meter"></div>
+            </div>
+            <div class="indicator">
+                <span>Output Level:</span>
+                <div id="outputLevel" class="level-meter"></div>
+            </div>
+        </div>
+
+        <!-- Microphone Test Section -->
+        <div id="micTest">
+            <h2>Microphone Test</h2>
+            <button id="micTestButton" class="btn btn-secondary">Start Test</button>
+            <div id="micStatus">Ready to test microphone</div>
+            <div id="level">
+                <div id="levelBar"></div>
             </div>
         </div>
     </div>
@@ -161,22 +98,89 @@
     <script src="js/audioProcessor.js"></script>
     <script src="js/app.js"></script>
     <script>
-        function toggleAdvancedControls() {
-            const advancedControls = document.querySelector('.advanced-controls');
-            const toggleButton = document.querySelector('.advanced-toggle');
-            const toggleText = toggleButton.querySelector('.toggle-text');
-            const toggleIcon = toggleButton.querySelector('.toggle-icon');
+        // Microphone Test Code
+        const micTestButton = document.getElementById('micTestButton');
+        const micStatus = document.getElementById('micStatus');
+        const levelBar = document.getElementById('levelBar');
+        let audioContext;
+        let microphone;
+        let analyser;
+        let isRecording = false;
 
-            if (advancedControls.style.display === 'none') {
-                advancedControls.style.display = 'block';
-                toggleText.textContent = 'Hide Advanced Controls';
-                toggleIcon.textContent = '▲';
+        micTestButton.onclick = async () => {
+            if (!isRecording) {
+                try {
+                    micTestButton.disabled = true;
+                    micStatus.textContent = 'Requesting microphone access...';
+
+                    // Initialize audio context
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                    // Create and connect audio nodes
+                    microphone = audioContext.createMediaStreamSource(stream);
+                    analyser = audioContext.createAnalyser();
+                    const gainNode = audioContext.createGain();
+                    gainNode.gain.value = 0.5; // Reduce volume to prevent feedback
+
+                    microphone.connect(analyser);
+                    analyser.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+
+                    // Start level monitoring
+                    analyser.fftSize = 2048;
+                    const bufferLength = analyser.frequencyBinCount;
+                    const dataArray = new Uint8Array(bufferLength);
+
+                    function updateLevel() {
+                        if (!isRecording) return;
+
+                        analyser.getByteTimeDomainData(dataArray);
+                        let sum = 0;
+                        for (let i = 0; i < bufferLength; i++) {
+                            const amplitude = (dataArray[i] - 128) / 128;
+                            sum += amplitude * amplitude;
+                        }
+                        const rms = Math.sqrt(sum / bufferLength);
+                        const level = Math.min(100, rms * 400);
+                        levelBar.style.width = level + '%';
+
+                        requestAnimationFrame(updateLevel);
+                    }
+
+                    updateLevel();
+                    isRecording = true;
+                    micTestButton.textContent = 'Stop Test';
+                    micTestButton.disabled = false;
+                    micStatus.textContent = 'Microphone is active - you should hear yourself';
+
+                } catch (error) {
+                    console.error('Microphone access error:', error);
+                    let message = 'Error accessing microphone: ';
+                    if (error.name === 'NotAllowedError') {
+                        message += 'Permission denied. Please allow microphone access.';
+                    } else if (error.name === 'NotFoundError') {
+                        message += 'No microphone found. Please connect a microphone.';
+                    } else {
+                        message += error.message;
+                    }
+                    micStatus.textContent = message;
+                    micTestButton.disabled = false;
+                }
             } else {
-                advancedControls.style.display = 'none';
-                toggleText.textContent = 'Show Advanced Controls';
-                toggleIcon.textContent = '▼';
+                // Stop recording
+                if (microphone) {
+                    microphone.disconnect();
+                }
+                if (audioContext) {
+                    audioContext.close();
+                }
+                isRecording = false;
+                micTestButton.textContent = 'Start Test';
+                micStatus.textContent = 'Test stopped';
+                levelBar.style.width = '0%';
             }
-        }
+        };
     </script>
 </body>
 </html>

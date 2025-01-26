@@ -80,28 +80,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-
-function toggleAdvancedControls() {
-    const advancedControls = document.querySelector('.advanced-controls');
-    const toggleButton = document.querySelector('.advanced-toggle');
-    const toggleText = toggleButton.querySelector('.toggle-text');
-    const toggleIcon = toggleButton.querySelector('.toggle-icon');
-
-    if (advancedControls.style.display === 'none') {
-        advancedControls.style.display = 'block';
-        // Use setTimeout to allow display:block to take effect before adding the visible class
-        setTimeout(() => {
-            advancedControls.classList.add('visible');
-        }, 10);
-        toggleText.textContent = 'Hide Advanced Controls';
-        toggleIcon.textContent = '▲';
-    } else {
-        advancedControls.classList.remove('visible');
-        // Wait for transition to complete before hiding
-        setTimeout(() => {
-            advancedControls.style.display = 'none';
-        }, 300);
-        toggleText.textContent = 'Show Advanced Controls';
-        toggleIcon.textContent = '▼';
-    }
-}
