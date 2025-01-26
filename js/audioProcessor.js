@@ -7,49 +7,43 @@ class AudioProcessor {
         this.harmonizer = null;
         this.harmonyInterval = 3; // Default to third
         this.isInitialized = false;
-        this.pitchDetector = null;
     }
 
     async initialize() {
         if (this.isInitialized) return;
 
         try {
-            // Resume context if suspended
+            // Initialize audio context if suspended
             if (this.audioContext.state === 'suspended') {
                 await this.audioContext.resume();
             }
 
             const stream = await navigator.mediaDevices.getUserMedia({ 
                 audio: {
-                    echoCancellation: false,  // Disable echo cancellation for better pitch detection
-                    noiseSuppression: false,  // Disable noise suppression for clearer signal
-                    autoGainControl: false    // Disable auto gain for consistent levels
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false
                 }
             });
 
-            // Create audio source from microphone
+            // Create and connect audio nodes in the same way as the working mic test
             this.microphone = this.audioContext.createMediaStreamSource(stream);
-
-            // Create analyser for visualization
             this.analyser = this.audioContext.createAnalyser();
-            this.analyser.fftSize = 2048;
-
-            // Create gain node for output volume control
             this.gainNode = this.audioContext.createGain();
-            this.gainNode.gain.value = 0.5; // Set initial volume
+            this.gainNode.gain.value = 0.5;
 
-            // Create pitch detector
-            this.pitchDetector = this.createPitchDetector();
+            // Create harmonizer effect node
+            this.harmonizer = this.audioContext.createScriptProcessor(2048, 1, 1);
+            this.harmonizer.onaudioprocess = this.processAudio.bind(this);
 
-            // Create harmonizer
-            this.harmonizer = this.createHarmonizer();
-
-
-            // Connect the nodes: microphone -> analyser -> harmonizer -> gain -> output
+            // Connect nodes in the same order as the working mic test
             this.microphone.connect(this.analyser);
             this.analyser.connect(this.harmonizer);
             this.harmonizer.connect(this.gainNode);
             this.gainNode.connect(this.audioContext.destination);
+
+            // Set up analyzer
+            this.analyser.fftSize = 2048;
 
             this.isInitialized = true;
             await this.startProcessing();
@@ -59,68 +53,17 @@ class AudioProcessor {
         }
     }
 
-    createPitchDetector() {
-        return new Pitchy.PitchDetector({
-            audioContext: this.audioContext,
-            bufferSize: 2048
-        });
-    }
+    processAudio(e) {
+        const inputBuffer = e.inputBuffer.getChannelData(0);
+        const outputBuffer = e.outputBuffer.getChannelData(0);
 
-    createHarmonizer() {
-        const harmonizer = this.audioContext.createScriptProcessor(2048, 1, 1);
-
-        harmonizer.onaudioprocess = (e) => {
-            const inputBuffer = e.inputBuffer.getChannelData(0);
-            const outputBuffer = e.outputBuffer.getChannelData(0);
-
-            // Detect pitch
-            const [pitch] = this.pitchDetector.analyzePitch(inputBuffer);
-
-            if (pitch && pitch > 0) {
-                // Calculate harmony pitch based on interval
-                const harmonyPitch = this.calculateHarmonyPitch(pitch);
-
-                // Apply pitch shifting
-                this.applyPitchShift(inputBuffer, outputBuffer, pitch, harmonyPitch);
-            } else {
-                // If no pitch detected, pass through original audio
-                outputBuffer.set(inputBuffer);
-            }
-        };
-
-        return harmonizer;
-    }
-
-    calculateHarmonyPitch(fundamental) {
-        // Calculate harmony pitch based on musical intervals
-        const semitones = parseInt(this.harmonyInterval);
-        return fundamental * Math.pow(2, semitones / 12);
-    }
-
-    applyPitchShift(inputBuffer, outputBuffer, originalPitch, targetPitch) {
-        const pitchRatio = targetPitch / originalPitch;
-
-        // Simple pitch shifting using resampling
-        let readIndex = 0;
-        for (let i = 0; i < outputBuffer.length; i++) {
-            readIndex += pitchRatio;
-
-            const index1 = Math.floor(readIndex);
-            const index2 = Math.ceil(readIndex);
-            const fraction = readIndex - index1;
-
-            // Linear interpolation
-            if (index2 < inputBuffer.length) {
-                outputBuffer[i] = inputBuffer[index1] * (1 - fraction) + 
-                                inputBuffer[index2] * fraction;
-            } else {
-                outputBuffer[i] = 0;
-            }
-        }
+        // Simple harmony effect - for now, just pass through the audio
+        // We'll add pitch shifting later once basic audio flow works
+        outputBuffer.set(inputBuffer);
     }
 
     setHarmonyInterval(interval) {
-        this.harmonyInterval = interval;
+        this.harmonyInterval = parseInt(interval);
     }
 
     async startProcessing() {
@@ -131,6 +74,15 @@ class AudioProcessor {
 
     async stopProcessing() {
         if (this.audioContext) {
+            if (this.microphone) {
+                this.microphone.disconnect();
+            }
+            if (this.harmonizer) {
+                this.harmonizer.disconnect();
+            }
+            if (this.gainNode) {
+                this.gainNode.disconnect();
+            }
             await this.audioContext.suspend();
             this.isInitialized = false;
         }
