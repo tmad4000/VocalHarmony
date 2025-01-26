@@ -6,13 +6,18 @@ class AudioProcessor {
         this.analyser = null;
         this.isInitialized = false;
         this.harmonyInterval = 4;
+        this.recorder = null;
+        this.recordedChunks = [];
+        this.isAsyncMode = false;
+        this.recordedAudio = null;
     }
 
-    async initialize() {
+    async initialize(isAsync = false) {
         if (this.isInitialized) return;
 
         try {
             await Tone.start();
+            this.isAsyncMode = isAsync;
 
             // Create audio nodes
             this.mic = new Tone.UserMedia();
@@ -25,18 +30,68 @@ class AudioProcessor {
 
             // Connect the nodes
             await this.mic.open();
-            this.mic.connect(this.pitchShift);
-            this.pitchShift.connect(this.gainNode);
-            this.gainNode.connect(this.analyser);
-            this.gainNode.toDestination();
+
+            if (!this.isAsyncMode) {
+                // Real-time mode connections
+                this.mic.connect(this.pitchShift);
+                this.pitchShift.connect(this.gainNode);
+                this.gainNode.connect(this.analyser);
+                this.gainNode.toDestination();
+            }
 
             this.isInitialized = true;
-            await this.startProcessing();
 
         } catch (error) {
             console.error('Error initializing audio:', error);
             throw error;
         }
+    }
+
+    startRecording() {
+        if (!this.isAsyncMode || !this.mic) return;
+
+        const micStream = this.mic.context.rawContext.createMediaStreamSource(this.mic._mediaStream);
+        this.recorder = new MediaRecorder(this.mic._mediaStream);
+        this.recordedChunks = [];
+
+        this.recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+                this.recordedChunks.push(e.data);
+            }
+        };
+
+        this.recorder.onstop = async () => {
+            const blob = new Blob(this.recordedChunks, { type: 'audio/webm' });
+            const audioUrl = URL.createObjectURL(blob);
+            this.recordedAudio = await Tone.Buffer.fromUrl(audioUrl);
+        };
+
+        this.recorder.start();
+    }
+
+    stopRecording() {
+        if (this.recorder && this.recorder.state === "recording") {
+            this.recorder.stop();
+        }
+    }
+
+    async playProcessedAudio() {
+        if (!this.recordedAudio) return;
+
+        const player = new Tone.Player(this.recordedAudio).connect(this.pitchShift);
+        this.pitchShift.connect(this.gainNode);
+        this.gainNode.connect(this.analyser);
+        this.gainNode.toDestination();
+
+        player.loop = false;
+        await player.start();
+
+        return new Promise((resolve) => {
+            player.onstop = () => {
+                player.dispose();
+                resolve();
+            };
+        });
     }
 
     updatePitchShift() {
@@ -76,7 +131,7 @@ class AudioProcessor {
     }
 
     async startProcessing() {
-        if (this.mic) {
+        if (this.mic && !this.isAsyncMode) {
             await Tone.start();
         }
     }

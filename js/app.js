@@ -3,15 +3,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const visualizer = new AudioVisualizer('audioVisualizer');
     let isProcessing = false;
 
+    // UI Elements
+    const asyncModeToggle = document.getElementById('asyncModeToggle');
+    const realtimeControls = document.getElementById('realtimeControls');
+    const asyncControls = document.getElementById('asyncControls');
     const startButton = document.getElementById('startButton');
+    const recordButton = document.getElementById('recordButton');
+    const stopButton = document.getElementById('stopButton');
+    const playButton = document.getElementById('playButton');
     const harmonySelect = document.getElementById('harmonySelect');
-    const antiAliasControl = document.getElementById('antiAliasControl');
-    const reverbControl = document.getElementById('reverbControl');
-    const volumeControl = document.getElementById('volumeControl'); // Added volume control
+    const volumeControl = document.getElementById('volumeControl');
+
     const status = document.createElement('div');
     status.className = 'status-message';
     document.querySelector('.controls').appendChild(status);
 
+    // Mode switching
+    asyncModeToggle.addEventListener('change', (e) => {
+        const isAsync = e.target.checked;
+        realtimeControls.style.display = isAsync ? 'none' : 'block';
+        asyncControls.style.display = isAsync ? 'block' : 'none';
+
+        // Reset state when switching modes
+        if (isProcessing) {
+            audioProcessor.stopProcessing();
+            isProcessing = false;
+        }
+
+        // Reset buttons
+        recordButton.disabled = false;
+        stopButton.disabled = true;
+        playButton.disabled = true;
+        startButton.textContent = 'Start Microphone';
+    });
+
+    // Real-time mode controls
     startButton.addEventListener('click', async () => {
         if (!isProcessing) {
             try {
@@ -19,12 +45,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 startButton.disabled = true;
                 status.textContent = 'Requesting microphone access...';
 
-                await audioProcessor.initialize();
-
-                // Set initial volume from slider
+                await audioProcessor.initialize(false);
                 audioProcessor.setVolume(volumeControl.value / 100);
-
-                // Only set up visualization after successful initialization
                 visualizer.setAnalyser(audioProcessor.getAnalyser());
                 visualizer.draw();
 
@@ -37,11 +59,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 let errorMessage = 'An error occurred while accessing the microphone. ';
 
                 if (error.name === 'NotAllowedError') {
-                    errorMessage = 'Microphone access was denied. Please allow microphone access in your browser settings and try again.';
+                    errorMessage = 'Microphone access was denied. Please allow microphone access in your browser settings.';
                 } else if (error.name === 'NotFoundError') {
                     errorMessage = 'No microphone was found. Please connect a microphone and try again.';
-                } else if (error.name === 'NotReadableError') {
-                    errorMessage = 'Could not access your microphone. It may be in use by another application.';
                 } else {
                     errorMessage += 'Please check your microphone connection and try again.';
                 }
@@ -62,20 +82,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Async mode controls
+    recordButton.addEventListener('click', async () => {
+        try {
+            await audioProcessor.initialize(true);
+            audioProcessor.startRecording();
+            recordButton.disabled = true;
+            stopButton.disabled = false;
+            playButton.disabled = true;
+            status.textContent = 'Recording...';
+        } catch (error) {
+            console.error('Failed to start recording:', error);
+            status.textContent = 'Error starting recording. Please check microphone permissions.';
+        }
+    });
+
+    stopButton.addEventListener('click', () => {
+        audioProcessor.stopRecording();
+        recordButton.disabled = false;
+        stopButton.disabled = true;
+        playButton.disabled = false;
+        status.textContent = 'Recording stopped. Click Play to hear processed audio.';
+    });
+
+    playButton.addEventListener('click', async () => {
+        try {
+            playButton.disabled = true;
+            status.textContent = 'Playing processed audio...';
+            await audioProcessor.playProcessedAudio();
+            playButton.disabled = false;
+            status.textContent = 'Playback complete';
+        } catch (error) {
+            console.error('Failed to play audio:', error);
+            status.textContent = 'Error playing audio';
+            playButton.disabled = false;
+        }
+    });
+
+    // Common controls
     harmonySelect.addEventListener('change', (e) => {
         audioProcessor.setHarmonyInterval(parseInt(e.target.value));
     });
 
     volumeControl.addEventListener('input', (e) => {
         audioProcessor.setVolume(e.target.value / 100);
-    });
-
-    antiAliasControl.addEventListener('input', (e) => {
-        audioProcessor.setAntiAliasing(parseInt(e.target.value));
-    });
-
-    reverbControl.addEventListener('input', (e) => {
-        audioProcessor.setReverb(parseInt(e.target.value));
     });
 
     // Handle page visibility changes
