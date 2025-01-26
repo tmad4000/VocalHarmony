@@ -5,7 +5,7 @@ class AudioProcessor {
         this.gainNode = null;
         this.analyser = null;
         this.isInitialized = false;
-        this.harmonyInterval = 4;
+        this.harmonyInterval = 3; // Changed from 4 to 3 for third above as default
         this.recorder = null;
         this.recordedChunks = [];
         this.isAsyncMode = false;
