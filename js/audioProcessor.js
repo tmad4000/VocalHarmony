@@ -8,8 +8,11 @@ class AudioProcessor {
         this.antiAliasFilter = null;
         this.reverbNode = null;
         this.reverbGain = null;
-        this.harmonyInterval = 3; // Default to third
+        this.harmonyInterval = 4; 
         this.isInitialized = false;
+        this.pitchDetector = null;
+        this.lastPitch = 440;
+        this.grainSize = 2048;
     }
 
     async initialize() {
@@ -37,24 +40,22 @@ class AudioProcessor {
             // Create anti-aliasing filter
             this.antiAliasFilter = this.audioContext.createBiquadFilter();
             this.antiAliasFilter.type = 'lowpass';
-            this.antiAliasFilter.frequency.value = 20000; // Start with max frequency
+            this.antiAliasFilter.frequency.value = 20000;
             this.antiAliasFilter.Q.value = 1;
 
             // Create reverb nodes
             this.reverbNode = this.audioContext.createConvolver();
             this.reverbGain = this.audioContext.createGain();
-            this.reverbGain.gain.value = 0; // Start with no reverb
+            this.reverbGain.gain.value = 0;
 
             // Create harmonizer effect node
-            this.harmonizer = this.audioContext.createScriptProcessor(2048, 1, 1);
+            this.harmonizer = this.audioContext.createScriptProcessor(this.grainSize, 1, 1);
             this.harmonizer.onaudioprocess = this.processAudio.bind(this);
 
-            // Create impulse response for reverb
+            // Initialize pitch detector
             await this.createReverbImpulse();
 
-            // Connect nodes:
-            // microphone -> antiAliasFilter -> harmonizer -> gainNode -> destination
-            //                                             -> reverbNode -> reverbGain -> destination
+            // Connect nodes
             this.microphone.connect(this.antiAliasFilter);
             this.antiAliasFilter.connect(this.harmonizer);
             this.harmonizer.connect(this.gainNode);
@@ -74,9 +75,66 @@ class AudioProcessor {
         }
     }
 
+    processAudio(e) {
+        const inputBuffer = e.inputBuffer.getChannelData(0);
+        const outputBuffer = e.outputBuffer.getChannelData(0);
+
+        // First, copy input to output
+        outputBuffer.set(inputBuffer);
+
+        // Apply pitch shifting for harmony
+        const pitchRatio = this.calculatePitchRatio(this.harmonyInterval);
+        const pitchShiftedBuffer = this.pitchShift(inputBuffer, pitchRatio);
+
+        // Mix original and pitch-shifted signals
+        for (let i = 0; i < outputBuffer.length; i++) {
+            outputBuffer[i] = 0.5 * (inputBuffer[i] + pitchShiftedBuffer[i]);
+        }
+    }
+
+    calculatePitchRatio(interval) {
+        const semitoneRatio = Math.pow(2, 1/12);
+        switch(parseInt(interval)) {
+            case 3: 
+                return Math.pow(semitoneRatio, 4);
+            case 4: 
+                return Math.pow(semitoneRatio, 5);
+            case 5: 
+                return Math.pow(semitoneRatio, 7);
+            case 7: 
+                return Math.pow(semitoneRatio, 11);
+            default:
+                return 1.0;
+        }
+    }
+
+    pitchShift(inputBuffer, pitchRatio) {
+        const outputBuffer = new Float32Array(inputBuffer.length);
+        const grainSize = Math.floor(this.grainSize / 4);
+        const numGrains = Math.floor(inputBuffer.length / grainSize);
+
+        for (let i = 0; i < numGrains; i++) {
+            const grainStart = i * grainSize;
+            const stretchedSize = Math.floor(grainSize * pitchRatio);
+
+            // Apply Hanning window
+            for (let j = 0; j < grainSize; j++) {
+                const window = 0.5 * (1 - Math.cos(2 * Math.PI * j / grainSize));
+                const inputIndex = grainStart + j;
+                const outputIndex = Math.floor(grainStart * pitchRatio) + j;
+
+                if (outputIndex < outputBuffer.length) {
+                    outputBuffer[outputIndex] += inputBuffer[inputIndex] * window;
+                }
+            }
+        }
+
+        return outputBuffer;
+    }
+
     async createReverbImpulse() {
-        const length = 2; // Reverb length in seconds
-        const decay = 2.0; // Decay rate
+        const length = 2;
+        const decay = 2.0;
         const sampleRate = this.audioContext.sampleRate;
         const samples = length * sampleRate;
         const impulse = this.audioContext.createBuffer(2, samples, sampleRate);
@@ -92,9 +150,12 @@ class AudioProcessor {
         this.reverbNode.buffer = impulse;
     }
 
+    setHarmonyInterval(interval) {
+        this.harmonyInterval = parseInt(interval);
+    }
+
     setAntiAliasing(frequency) {
         if (this.antiAliasFilter) {
-            // Map 0-100 to 200-20000 Hz logarithmically
             const minFreq = Math.log(200);
             const maxFreq = Math.log(20000);
             const scale = (maxFreq - minFreq) / 100;
@@ -105,19 +166,8 @@ class AudioProcessor {
 
     setReverb(amount) {
         if (this.reverbGain) {
-            // Map 0-100 to 0-0.5 for reverb mix
             this.reverbGain.gain.value = (amount / 100) * 0.5;
         }
-    }
-
-    processAudio(e) {
-        const inputBuffer = e.inputBuffer.getChannelData(0);
-        const outputBuffer = e.outputBuffer.getChannelData(0);
-        outputBuffer.set(inputBuffer);
-    }
-
-    setHarmonyInterval(interval) {
-        this.harmonyInterval = parseInt(interval);
     }
 
     async startProcessing() {
@@ -128,24 +178,12 @@ class AudioProcessor {
 
     async stopProcessing() {
         if (this.audioContext) {
-            if (this.gainNode) {
-                this.gainNode.disconnect();
-            }
-            if (this.harmonizer) {
-                this.harmonizer.disconnect();
-            }
-            if (this.antiAliasFilter) {
-                this.antiAliasFilter.disconnect();
-            }
-            if (this.reverbNode) {
-                this.reverbNode.disconnect();
-            }
-            if (this.reverbGain) {
-                this.reverbGain.disconnect();
-            }
-            if (this.microphone) {
-                this.microphone.disconnect();
-            }
+            if (this.gainNode) this.gainNode.disconnect();
+            if (this.harmonizer) this.harmonizer.disconnect();
+            if (this.antiAliasFilter) this.antiAliasFilter.disconnect();
+            if (this.reverbNode) this.reverbNode.disconnect();
+            if (this.reverbGain) this.reverbGain.disconnect();
+            if (this.microphone) this.microphone.disconnect();
             await this.audioContext.suspend();
             this.isInitialized = false;
         }
