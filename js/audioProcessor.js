@@ -1,7 +1,6 @@
 class AudioProcessor {
     constructor() {
         this.mic = null;
-        this.pitchShift = null;
         this.gainNode = null;
         this.analyser = null;
         this.isInitialized = false;
@@ -10,9 +9,8 @@ class AudioProcessor {
         this.recordedChunks = [];
         this.isAsyncMode = false;
         this.recordedAudio = null;
-        this.soundTouch = null;
+        this.pitchShift = null;
         this.bufferSize = 2048;
-        this.scriptNode = null;
     }
 
     async initialize(isAsync = false) {
@@ -23,14 +21,10 @@ class AudioProcessor {
             this.isAsyncMode = isAsync;
 
             // Create audio context and nodes
-            const audioContext = Tone.context.rawContext;
             this.mic = new Tone.UserMedia();
+            this.pitchShift = new Tone.PitchShift();
             this.gainNode = new Tone.Gain(0.8);
             this.analyser = new Tone.Analyser("waveform", this.bufferSize);
-
-            // Initialize SoundTouch
-            this.soundTouch = new window.soundtouch.SoundTouch(audioContext.sampleRate);
-            this.scriptNode = audioContext.createScriptProcessor(this.bufferSize, 1, 1);
 
             // Set initial pitch shift based on harmony interval
             this.updatePitchShift();
@@ -39,30 +33,9 @@ class AudioProcessor {
             await this.mic.open();
 
             if (!this.isAsyncMode) {
-                // Real-time mode connections with formant preservation
-                const inputNode = audioContext.createGain();
-                this.mic.connect(inputNode);
-
-                this.scriptNode.onaudioprocess = (e) => {
-                    const inputBuffer = e.inputBuffer.getChannelData(0);
-                    const outputBuffer = e.outputBuffer.getChannelData(0);
-
-                    // Process audio through SoundTouch
-                    const frame = new Float32Array(inputBuffer);
-                    this.soundTouch.process(frame);
-
-                    // Get processed samples
-                    const processed = new Float32Array(this.bufferSize);
-                    this.soundTouch.receive(processed);
-
-                    // Copy to output
-                    for (let i = 0; i < processed.length; i++) {
-                        outputBuffer[i] = processed[i];
-                    }
-                };
-
-                inputNode.connect(this.scriptNode);
-                this.scriptNode.connect(this.gainNode.input);
+                // Real-time mode connections
+                this.mic.connect(this.pitchShift);
+                this.pitchShift.connect(this.gainNode);
                 this.gainNode.connect(this.analyser);
                 this.gainNode.toDestination();
             }
@@ -123,7 +96,7 @@ class AudioProcessor {
     }
 
     updatePitchShift() {
-        if (!this.soundTouch) return;
+        if (!this.pitchShift) return;
 
         // Calculate pitch shift based on harmony interval
         let semitones = 0;
@@ -146,9 +119,7 @@ class AudioProcessor {
         }
 
         // Set pitch shift with formant preservation
-        const pitchShift = Math.pow(2, semitones / 12);
-        this.soundTouch.tempo = 1.0;
-        this.soundTouch.pitch = pitchShift;
+        this.pitchShift.pitch = semitones;
     }
 
     setHarmonyInterval(interval) {
@@ -175,8 +146,8 @@ class AudioProcessor {
         if (this.gainNode) {
             this.gainNode.disconnect();
         }
-        if (this.scriptNode) {
-            this.scriptNode.disconnect();
+        if (this.pitchShift) {
+            this.pitchShift.disconnect();
         }
         this.isInitialized = false;
     }
