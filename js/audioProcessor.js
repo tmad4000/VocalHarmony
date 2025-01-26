@@ -5,11 +5,31 @@ class AudioProcessor {
         this.microphone = null;
         this.gainNode = null;
         this.harmonizer = null;
+
+        // Advanced audio processing nodes
+        this.lowBandComp = null;
+        this.midBandComp = null;
+        this.highBandComp = null;
+        this.paramEQ = [];
+        this.stereoWidth = null;
+        this.noiseGate = null;
+
+        // Existing nodes
         this.antiAliasFilter = null;
         this.reverbNode = null;
         this.reverbGain = null;
-        this.harmonyInterval = 3; // Default to third
+
+        // Harmony settings
+        this.harmonyInterval = 3;
+        this.harmonyMode = 'parallel'; // 'parallel', 'counter', 'chord'
+        this.pitchCorrection = true;
+
         this.isInitialized = false;
+
+        // Audio analysis
+        this.pitchDetector = null;
+        this.currentPitch = 0;
+        this.pitchConfidence = 0;
     }
 
     async initialize() {
@@ -28,43 +48,100 @@ class AudioProcessor {
                 }
             });
 
-            // Create basic audio nodes
+            // Create basic nodes
             this.microphone = this.audioContext.createMediaStreamSource(stream);
             this.analyser = this.audioContext.createAnalyser();
             this.gainNode = this.audioContext.createGain();
             this.gainNode.gain.value = 0.5;
 
-            // Create anti-aliasing filter
+            // Create multiband compressor nodes
+            const createCompressor = () => {
+                const comp = this.audioContext.createDynamicsCompressor();
+                comp.threshold.value = -24;
+                comp.knee.value = 12;
+                comp.ratio.value = 4;
+                comp.attack.value = 0.003;
+                comp.release.value = 0.25;
+                return comp;
+            };
+
+            this.lowBandComp = createCompressor();
+            this.midBandComp = createCompressor();
+            this.highBandComp = createCompressor();
+
+            // Create parametric EQ bands (5-band EQ)
+            const frequencies = [100, 400, 1000, 2500, 8000];
+            this.paramEQ = frequencies.map(freq => {
+                const filter = this.audioContext.createBiquadFilter();
+                filter.type = 'peaking';
+                filter.frequency.value = freq;
+                filter.Q.value = 1;
+                filter.gain.value = 0;
+                return filter;
+            });
+
+            // Create stereo width processor
+            this.stereoWidth = this.audioContext.createStereoPanner();
+
+            // Create noise gate
+            this.noiseGate = this.audioContext.createDynamicsCompressor();
+            this.noiseGate.threshold.value = -50;
+            this.noiseGate.knee.value = 0;
+            this.noiseGate.ratio.value = 40;
+            this.noiseGate.attack.value = 0;
+            this.noiseGate.release.value = 0.1;
+
+            // Create anti-aliasing and reverb nodes
             this.antiAliasFilter = this.audioContext.createBiquadFilter();
             this.antiAliasFilter.type = 'lowpass';
-            this.antiAliasFilter.frequency.value = 20000; // Start with max frequency
+            this.antiAliasFilter.frequency.value = 20000;
             this.antiAliasFilter.Q.value = 1;
 
-            // Create reverb nodes
             this.reverbNode = this.audioContext.createConvolver();
             this.reverbGain = this.audioContext.createGain();
-            this.reverbGain.gain.value = 0; // Start with no reverb
+            this.reverbGain.gain.value = 0;
 
-            // Create harmonizer effect node
+            // Create harmonizer
             this.harmonizer = this.audioContext.createScriptProcessor(2048, 1, 1);
             this.harmonizer.onaudioprocess = this.processAudio.bind(this);
 
             // Create impulse response for reverb
             await this.createReverbImpulse();
 
-            // Connect nodes:
-            // microphone -> antiAliasFilter -> harmonizer -> gainNode -> destination
-            //                                             -> reverbNode -> reverbGain -> destination
-            this.microphone.connect(this.antiAliasFilter);
-            this.antiAliasFilter.connect(this.harmonizer);
-            this.harmonizer.connect(this.gainNode);
+            // Connect nodes in series:
+            // mic -> noiseGate -> EQ -> compressors -> harmonizer -> stereoWidth -> reverb -> gain -> out
+
+            this.microphone.connect(this.noiseGate);
+
+            // Connect EQ bands in series
+            let lastNode = this.noiseGate;
+            this.paramEQ.forEach(eq => {
+                lastNode.connect(eq);
+                lastNode = eq;
+            });
+
+            // Split into three frequency bands for multiband compression
+            lastNode.connect(this.lowBandComp);
+            lastNode.connect(this.midBandComp);
+            lastNode.connect(this.highBandComp);
+
+            // Merge bands into harmonizer
+            this.lowBandComp.connect(this.harmonizer);
+            this.midBandComp.connect(this.harmonizer);
+            this.highBandComp.connect(this.harmonizer);
+
+            this.harmonizer.connect(this.stereoWidth);
+            this.stereoWidth.connect(this.gainNode);
+
+            // Parallel reverb path
             this.harmonizer.connect(this.reverbNode);
             this.reverbNode.connect(this.reverbGain);
             this.reverbGain.connect(this.gainNode);
+
             this.gainNode.connect(this.audioContext.destination);
 
             // Connect analyzer for visualization
-            this.antiAliasFilter.connect(this.analyser);
+            this.harmonizer.connect(this.analyser);
 
             this.isInitialized = true;
             await this.startProcessing();
@@ -159,5 +236,47 @@ class AudioProcessor {
         if (this.gainNode) {
             this.gainNode.gain.value = Math.max(0, Math.min(0.6, value));
         }
+    }
+
+    setCompressorBand(band, params) {
+        const compressor = band === 'low' ? this.lowBandComp :
+                         band === 'mid' ? this.midBandComp :
+                         this.highBandComp;
+
+        if (compressor) {
+            Object.entries(params).forEach(([param, value]) => {
+                if (compressor[param]) {
+                    compressor[param].value = value;
+                }
+            });
+        }
+    }
+
+    setEQBand(index, gain) {
+        if (this.paramEQ[index]) {
+            this.paramEQ[index].gain.value = gain;
+        }
+    }
+
+    setStereoWidth(width) {
+        if (this.stereoWidth) {
+            // Map 0-100 to -1 to 1
+            this.stereoWidth.pan.value = (width - 50) / 50;
+        }
+    }
+
+    setNoiseGateThreshold(threshold) {
+        if (this.noiseGate) {
+            // Map 0-100 to -100 to 0
+            this.noiseGate.threshold.value = -100 + threshold;
+        }
+    }
+
+    setHarmonyMode(mode) {
+        this.harmonyMode = mode;
+    }
+
+    setPitchCorrection(enabled) {
+        this.pitchCorrection = enabled;
     }
 }
