@@ -13,6 +13,7 @@ class AudioProcessor {
         this.pitchShift = null;
         this.crossFade = null;
         this.sampler = null;
+        this.reverb = null;
     }
 
     async initialize(isAsync = false) {
@@ -32,18 +33,42 @@ class AudioProcessor {
                 wet: 1
             }).toDestination();
 
+            // Create reverb for choir effect
+            this.reverb = new Tone.Reverb({
+                decay: 4,
+                preDelay: 0.2,
+                wet: 0.3
+            }).toDestination();
+
             // Initialize samplers for different instruments
             this.sampler = {
                 'synth-pad': new Tone.Synth({
                     oscillator: { type: 'sine' },
                     envelope: { attack: 0.1, decay: 0.2, sustain: 0.8, release: 1 }
                 }),
-                'choir': new Tone.Sampler({
-                    urls: {
-                        'C4': 'https://tonejs.github.io/audio/salamander/C4.mp3',
-                    },
-                    baseUrl: 'https://tonejs.github.io/audio/salamander/'
-                }),
+                'choir': new Tone.PolySynth(Tone.Synth, {
+                    voice: new Tone.Synth({
+                        oscillator: {
+                            type: "sawtooth8",  // Rich harmonic content
+                            spread: 20,         // Slight detuning for choir effect
+                            count: 3            // Number of detuned oscillators
+                        },
+                        envelope: {
+                            attack: 0.2,        // Soft attack like human voice
+                            decay: 0.1,
+                            sustain: 1,
+                            release: 0.8        // Natural voice release
+                        }
+                    }),
+                    maxPolyphony: 6  // Allow multiple voices
+                }).chain(
+                    new Tone.Filter({
+                        type: "lowpass",
+                        frequency: 2000,
+                        Q: 1
+                    }),
+                    this.reverb  // Add reverb specifically for choir
+                ),
                 'strings': new Tone.Sampler({
                     urls: {
                         'C4': 'https://tonejs.github.io/audio/salamander/C4.mp3',
@@ -78,7 +103,7 @@ class AudioProcessor {
         this.gainNode.disconnect();
 
         if (this.harmonyType === 'voice-basic') {
-            // Basic pitch shift - original implementation without crossfade
+            // Basic pitch shift implementation
             this.pitchShift.set({
                 windowSize: 0.1,
                 delayTime: 0,
@@ -92,11 +117,10 @@ class AudioProcessor {
                 Tone.Destination
             );
 
-            // Direct mic monitoring
             this.mic.connect(this.gainNode);
 
         } else if (this.harmonyType === 'voice-formant') {
-            // Advanced formant-preserved pitch shifting
+            // Formant-preserved pitch shifting
             this.pitchShift.set({
                 windowSize: 0.05,
                 delayTime: 0.01
@@ -113,8 +137,24 @@ class AudioProcessor {
             this.mic.connect(this.crossFade.b);
             this.crossFade.b.connect(this.gainNode);
 
+        } else if (this.harmonyType === 'choir') {
+            // Enhanced choir setup
+            this.mic.connect(this.analyser);
+            this.mic.connect(Tone.Destination);
+
+            // Create multiple detuned voices for choir effect
+            const detunes = [-10, -5, 0, 5, 10]; // Subtle detuning for each voice
+            detunes.forEach(detune => {
+                const voice = this.sampler['choir'].voices[0];
+                voice.detune.value = detune;
+                voice.connect(this.gainNode);
+            });
+
+            this.gainNode.connect(this.reverb);
+            this.reverb.connect(Tone.Destination);
+
         } else {
-            // Instrument harmony setup
+            // Other instrument harmony setup
             const instrument = this.sampler[this.harmonyType];
             if (instrument) {
                 this.mic.connect(this.analyser);
