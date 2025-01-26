@@ -35,7 +35,7 @@ class AudioProcessor {
             this.microphone = this.audioContext.createMediaStreamSource(stream);
             this.analyser = this.audioContext.createAnalyser();
             this.gainNode = this.audioContext.createGain();
-            this.gainNode.gain.value = 0.5;
+            this.gainNode.gain.value = 0.8; // Increased from 0.5 to 0.8
 
             // Create anti-aliasing filter
             this.antiAliasFilter = this.audioContext.createBiquadFilter();
@@ -79,16 +79,14 @@ class AudioProcessor {
         const inputBuffer = e.inputBuffer.getChannelData(0);
         const outputBuffer = e.outputBuffer.getChannelData(0);
 
-        // First, copy input to output
-        outputBuffer.set(inputBuffer);
-
         // Apply pitch shifting for harmony
         const pitchRatio = this.calculatePitchRatio(this.harmonyInterval);
         const pitchShiftedBuffer = this.pitchShift(inputBuffer, pitchRatio);
 
-        // Mix original and pitch-shifted signals
+        // Mix original and pitch-shifted signals with adjusted balance
         for (let i = 0; i < outputBuffer.length; i++) {
-            outputBuffer[i] = 0.5 * (inputBuffer[i] + pitchShiftedBuffer[i]);
+            // Adjust mix ratio: 60% original, 40% harmony
+            outputBuffer[i] = 0.6 * inputBuffer[i] + 0.4 * pitchShiftedBuffer[i];
         }
     }
 
