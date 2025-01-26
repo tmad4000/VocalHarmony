@@ -1,25 +1,29 @@
 class AudioProcessor {
     constructor() {
-        this.audioContext = null;
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         this.analyser = null;
         this.microphone = null;
         this.gainNode = null;
         this.harmonizer = null;
         this.harmonyInterval = 3; // Default to third
         this.isInitialized = false;
+        this.pitchDetector = null;
     }
 
     async initialize() {
         if (this.isInitialized) return;
 
         try {
-            // Initialize audio context
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            // Resume context if suspended
+            if (this.audioContext.state === 'suspended') {
+                await this.audioContext.resume();
+            }
+
             const stream = await navigator.mediaDevices.getUserMedia({ 
                 audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: false
+                    echoCancellation: false,  // Disable echo cancellation for better pitch detection
+                    noiseSuppression: false,  // Disable noise suppression for clearer signal
+                    autoGainControl: false    // Disable auto gain for consistent levels
                 }
             });
 
@@ -30,9 +34,9 @@ class AudioProcessor {
             this.analyser = this.audioContext.createAnalyser();
             this.analyser.fftSize = 2048;
 
-            // Create gain node to control volume
+            // Create gain node for output volume control
             this.gainNode = this.audioContext.createGain();
-            this.gainNode.gain.value = 0.5; // Reduce volume to prevent feedback
+            this.gainNode.gain.value = 0.5; // Set initial volume
 
             // Create pitch detector
             this.pitchDetector = this.createPitchDetector();
@@ -40,14 +44,15 @@ class AudioProcessor {
             // Create harmonizer
             this.harmonizer = this.createHarmonizer();
 
-            // Connect the audio nodes
+
+            // Connect the nodes: microphone -> analyser -> harmonizer -> gain -> output
             this.microphone.connect(this.analyser);
-            this.microphone.connect(this.harmonizer);
+            this.analyser.connect(this.harmonizer);
             this.harmonizer.connect(this.gainNode);
             this.gainNode.connect(this.audioContext.destination);
 
             this.isInitialized = true;
-            this.startProcessing();
+            await this.startProcessing();
         } catch (error) {
             console.error('Error initializing audio:', error);
             throw error;
@@ -118,15 +123,15 @@ class AudioProcessor {
         this.harmonyInterval = interval;
     }
 
-    startProcessing() {
-        if (this.audioContext && this.audioContext.state === 'suspended') {
-            this.audioContext.resume();
+    async startProcessing() {
+        if (this.audioContext.state === 'suspended') {
+            await this.audioContext.resume();
         }
     }
 
-    stopProcessing() {
+    async stopProcessing() {
         if (this.audioContext) {
-            this.audioContext.suspend();
+            await this.audioContext.suspend();
             this.isInitialized = false;
         }
     }
