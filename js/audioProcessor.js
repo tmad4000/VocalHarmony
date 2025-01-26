@@ -1,8 +1,7 @@
 class AudioProcessor {
     constructor() {
         this.mic = null;
-        this.audioContext = null;
-        this.pitchShifter = null;
+        this.pitchShift = null;
         this.gainNode = null;
         this.analyser = null;
         this.isInitialized = false;
@@ -11,38 +10,40 @@ class AudioProcessor {
         this.recordedChunks = [];
         this.isAsyncMode = false;
         this.recordedAudio = null;
-        this.formantPreservation = true;
-        this.processorNode = null;
-        this.inputBuffer = null;
+        this.formantPreservation = true; // Enable formant preservation by default
     }
 
     async initialize(isAsync = false) {
         if (this.isInitialized) return;
 
         try {
+            await Tone.start();
             this.isAsyncMode = isAsync;
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
             // Create audio nodes
-            this.mic = this.audioContext.createMediaStreamSource(stream);
-            this.gainNode = this.audioContext.createGain();
-            this.analyser = this.audioContext.createAnalyser();
-            this.gainNode.gain.value = 0.8;
-
-            // Initialize pitch shifter
-            this.pitchShifter = new PitchShifter(this.audioContext, this.mic, 4096);
-            this.pitchShifter.enableFormantCorrection = this.formantPreservation;
+            this.mic = new Tone.UserMedia();
+            this.pitchShift = new Tone.PitchShift({
+                pitch: 0,
+                windowSize: 0.1,
+                delayTime: 0,
+                feedback: 0,
+                wet: 1
+            });
+            this.gainNode = new Tone.Gain(0.8);
+            this.analyser = new Tone.Analyser("waveform", 2048);
 
             // Set initial pitch shift based on harmony interval
             this.updatePitchShift();
 
+            // Connect the nodes
+            await this.mic.open();
+
             if (!this.isAsyncMode) {
                 // Real-time mode connections
-                this.mic.connect(this.pitchShifter.input);
-                this.pitchShifter.output.connect(this.gainNode);
+                this.mic.connect(this.pitchShift);
+                this.pitchShift.connect(this.gainNode);
                 this.gainNode.connect(this.analyser);
-                this.gainNode.connect(this.audioContext.destination);
+                this.gainNode.toDestination();
             }
 
             this.isInitialized = true;
@@ -55,13 +56,16 @@ class AudioProcessor {
 
     setFormantPreservation(enabled) {
         this.formantPreservation = enabled;
-        if (this.pitchShifter) {
-            this.pitchShifter.enableFormantCorrection = enabled;
+        if (this.pitchShift) {
+            // Update window size based on formant preservation
+            // Smaller window size (0.03-0.05) for better formant preservation
+            // Larger window size (0.1) for traditional pitch shifting
+            this.pitchShift.windowSize = enabled ? 0.03 : 0.1;
         }
     }
 
     updatePitchShift() {
-        if (!this.pitchShifter) return;
+        if (!this.pitchShift) return;
 
         // Calculate semitones based on harmony interval
         let semitones = 0;
@@ -82,13 +86,14 @@ class AudioProcessor {
                 semitones = 11;
                 break;
         }
-        this.pitchShifter.pitch = Math.pow(2, semitones/12);
+        this.pitchShift.pitch = semitones;
     }
 
     startRecording() {
         if (!this.isAsyncMode || !this.mic) return;
 
-        this.recorder = new MediaRecorder(this.mic.mediaStream);
+        const micStream = this.mic.context.rawContext.createMediaStreamSource(this.mic._mediaStream);
+        this.recorder = new MediaRecorder(this.mic._mediaStream);
         this.recordedChunks = [];
 
         this.recorder.ondataavailable = (e) => {
@@ -100,16 +105,10 @@ class AudioProcessor {
         this.recorder.onstop = async () => {
             const blob = new Blob(this.recordedChunks, { type: 'audio/webm' });
             const audioUrl = URL.createObjectURL(blob);
-            this.recordedAudio = await this.loadAudio(audioUrl);
+            this.recordedAudio = await Tone.Buffer.fromUrl(audioUrl);
         };
 
         this.recorder.start();
-    }
-
-    async loadAudio(url) {
-        const response = await fetch(url);
-        const arrayBuffer = await response.arrayBuffer();
-        return await this.audioContext.decodeAudioData(arrayBuffer);
     }
 
     stopRecording() {
@@ -121,30 +120,21 @@ class AudioProcessor {
     async playProcessedAudio() {
         if (!this.recordedAudio) return;
 
-        const source = this.audioContext.createBufferSource();
-        source.buffer = this.recordedAudio;
-
-        // Create a new pitch shifter for playback
-        const playbackShifter = new PitchShifter(this.audioContext, source, 4096);
-        playbackShifter.pitch = this.pitchShifter.pitch;
-        playbackShifter.enableFormantCorrection = this.formantPreservation;
-
-        source.connect(playbackShifter.input);
-        playbackShifter.output.connect(this.gainNode);
+        const player = new Tone.Player(this.recordedAudio).connect(this.pitchShift);
+        this.pitchShift.connect(this.gainNode);
         this.gainNode.connect(this.analyser);
-        this.gainNode.connect(this.audioContext.destination);
+        this.gainNode.toDestination();
 
-        source.start(0);
+        player.loop = false;
+        await player.start();
 
         return new Promise((resolve) => {
-            source.onended = () => {
-                source.disconnect();
-                playbackShifter.disconnect();
+            player.onstop = () => {
+                player.dispose();
                 resolve();
             };
         });
     }
-
     setHarmonyInterval(interval) {
         this.harmonyInterval = parseInt(interval);
         this.updatePitchShift();
@@ -157,17 +147,20 @@ class AudioProcessor {
     }
 
     async startProcessing() {
-        if (this.audioContext && this.audioContext.state === 'suspended') {
-            await this.audioContext.resume();
+        if (this.mic && !this.isAsyncMode) {
+            await Tone.start();
         }
     }
 
     async stopProcessing() {
-        if (this.audioContext) {
-            await this.audioContext.close();
+        if (this.mic) {
+            await this.mic.close();
         }
-        if (this.pitchShifter) {
-            this.pitchShifter.disconnect();
+        if (this.gainNode) {
+            this.gainNode.disconnect();
+        }
+        if (this.pitchShift) {
+            this.pitchShift.disconnect();
         }
         this.isInitialized = false;
     }
