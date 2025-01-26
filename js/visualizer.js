@@ -4,7 +4,7 @@ class AudioVisualizer {
         this.ctx = this.canvas.getContext('2d');
         this.analyser = null;
         this.dataArray = null;
-        
+
         this.resize();
         window.addEventListener('resize', () => this.resize());
     }
@@ -16,7 +16,6 @@ class AudioVisualizer {
 
     setAnalyser(analyser) {
         this.analyser = analyser;
-        this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
     }
 
     draw() {
@@ -24,7 +23,7 @@ class AudioVisualizer {
 
         requestAnimationFrame(() => this.draw());
 
-        this.analyser.getByteTimeDomainData(this.dataArray);
+        const values = this.analyser.getValue();
 
         this.ctx.fillStyle = 'rgb(0, 0, 0)';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -33,12 +32,12 @@ class AudioVisualizer {
         this.ctx.strokeStyle = 'rgb(0, 255, 0)';
         this.ctx.beginPath();
 
-        const sliceWidth = this.canvas.width * 1.0 / this.dataArray.length;
+        const sliceWidth = this.canvas.width * 1.0 / values.length;
         let x = 0;
 
-        for (let i = 0; i < this.dataArray.length; i++) {
-            const v = this.dataArray[i] / 128.0;
-            const y = v * this.canvas.height / 2;
+        for (let i = 0; i < values.length; i++) {
+            const v = values[i] + 1;
+            const y = (v * this.canvas.height) / 2;
 
             if (i === 0) {
                 this.ctx.moveTo(x, y);
@@ -53,18 +52,10 @@ class AudioVisualizer {
         this.ctx.stroke();
 
         // Update level meters
-        const inputLevel = this.calculateRMS(this.dataArray);
-        this.updateLevelMeter('inputLevel', inputLevel);
-        this.updateLevelMeter('outputLevel', inputLevel); // For simplicity, using same level
-    }
-
-    calculateRMS(dataArray) {
-        let rms = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-            rms += (dataArray[i] - 128) * (dataArray[i] - 128);
-        }
-        rms = Math.sqrt(rms / dataArray.length) / 128;
-        return Math.min(1, rms * 2);
+        const rms = Math.sqrt(values.reduce((acc, val) => acc + val * val, 0) / values.length);
+        const normalizedLevel = Math.min(1, rms * 2);
+        this.updateLevelMeter('inputLevel', normalizedLevel);
+        this.updateLevelMeter('outputLevel', normalizedLevel);
     }
 
     updateLevelMeter(meterId, level) {
