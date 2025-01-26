@@ -30,7 +30,7 @@ class AudioProcessor {
             this.microphone = this.audioContext.createMediaStreamSource(stream);
             this.analyser = this.audioContext.createAnalyser();
             this.gainNode = this.audioContext.createGain();
-            this.gainNode.gain.value = 0.5;
+            this.gainNode.gain.value = 0.8; // Increased from 0.5 to 0.8 for more volume
 
             // Create harmonizer effect node
             this.harmonizer = this.audioContext.createScriptProcessor(2048, 1, 1);
