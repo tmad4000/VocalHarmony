@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // UI Elements
     const asyncModeToggle = document.getElementById('asyncModeToggle');
+    const formantToggle = document.getElementById('formantToggle');
     const realtimeControls = document.getElementById('realtimeControls');
     const asyncControls = document.getElementById('asyncControls');
     const startButton = document.getElementById('startButton');
@@ -17,6 +18,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const status = document.createElement('div');
     status.className = 'status-message';
     document.querySelector('.controls').appendChild(status);
+
+    // Formant preservation toggle
+    formantToggle.addEventListener('change', (e) => {
+        audioProcessor.setFormantPreservation(e.target.checked);
+    });
 
     // Mode switching
     asyncModeToggle.addEventListener('change', (e) => {

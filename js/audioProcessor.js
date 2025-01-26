@@ -5,11 +5,12 @@ class AudioProcessor {
         this.gainNode = null;
         this.analyser = null;
         this.isInitialized = false;
-        this.harmonyInterval = 3; // Changed from 4 to 3 for third above as default
+        this.harmonyInterval = 3; // Third above as default
         this.recorder = null;
         this.recordedChunks = [];
         this.isAsyncMode = false;
         this.recordedAudio = null;
+        this.formantPreservation = true; // Enable formant preservation by default
     }
 
     async initialize(isAsync = false) {
@@ -21,7 +22,13 @@ class AudioProcessor {
 
             // Create audio nodes
             this.mic = new Tone.UserMedia();
-            this.pitchShift = new Tone.PitchShift();
+            this.pitchShift = new Tone.PitchShift({
+                pitch: 0,
+                windowSize: 0.1,
+                delayTime: 0,
+                feedback: 0,
+                wet: 1
+            });
             this.gainNode = new Tone.Gain(0.8);
             this.analyser = new Tone.Analyser("waveform", 2048);
 
@@ -45,6 +52,41 @@ class AudioProcessor {
             console.error('Error initializing audio:', error);
             throw error;
         }
+    }
+
+    setFormantPreservation(enabled) {
+        this.formantPreservation = enabled;
+        if (this.pitchShift) {
+            // Update window size based on formant preservation
+            // Smaller window size (0.03-0.05) for better formant preservation
+            // Larger window size (0.1) for traditional pitch shifting
+            this.pitchShift.windowSize = enabled ? 0.03 : 0.1;
+        }
+    }
+
+    updatePitchShift() {
+        if (!this.pitchShift) return;
+
+        // Calculate semitones based on harmony interval
+        let semitones = 0;
+        switch(parseInt(this.harmonyInterval)) {
+            case 1: // No Harmony
+                semitones = 0;
+                break;
+            case 3: // Third
+                semitones = 4;
+                break;
+            case 4: // Fourth
+                semitones = 5;
+                break;
+            case 5: // Fifth
+                semitones = 7;
+                break;
+            case 7: // Seventh
+                semitones = 11;
+                break;
+        }
+        this.pitchShift.pitch = semitones;
     }
 
     startRecording() {
@@ -93,32 +135,6 @@ class AudioProcessor {
             };
         });
     }
-
-    updatePitchShift() {
-        if (!this.pitchShift) return;
-
-        // Calculate semitones based on harmony interval
-        let semitones = 0;
-        switch(parseInt(this.harmonyInterval)) {
-            case 1: // No Harmony
-                semitones = 0;
-                break;
-            case 3: // Third
-                semitones = 4;
-                break;
-            case 4: // Fourth
-                semitones = 5;
-                break;
-            case 5: // Fifth
-                semitones = 7;
-                break;
-            case 7: // Seventh
-                semitones = 11;
-                break;
-        }
-        this.pitchShift.pitch = semitones;
-    }
-
     setHarmonyInterval(interval) {
         this.harmonyInterval = parseInt(interval);
         this.updatePitchShift();
