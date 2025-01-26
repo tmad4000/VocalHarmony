@@ -61,11 +61,11 @@
                         <option value="electronic-pad">Electronic Pad</option>
                     </select>
                     <div class="control-group mt-2">
-                        <label for="bgMusicVolume">Background Volume:</label>
+                        <label for="bgMusicVolume">Background Volume: <span id="bgVolumeValue">50%</span></label>
                         <div class="slider-container">
-                            <span class="slider-label min">Quiet</span>
-                            <input type="range" id="bgMusicVolume" min="0" max="100" value="50" class="form-range">
-                            <span class="slider-label max">Loud</span>
+                            <span class="slider-label min">0%</span>
+                            <input type="range" id="bgMusicVolume" min="0" max="100" value="50" step="1" class="form-range">
+                            <span class="slider-label max">100%</span>
                         </div>
                     </div>
                 </div>

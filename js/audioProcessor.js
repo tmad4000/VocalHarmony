@@ -328,8 +328,8 @@ class AudioProcessor {
 
     setBackgroundVolume(value) {
         if (this.bgMusicVolume) {
-            // Normalize the volume between 0 and 1, with a slight boost
-            const normalizedVolume = Math.max(0, Math.min(1.2, value));
+            // Normalize the volume between 0 and 2, allowing for up to 200% volume
+            const normalizedVolume = Math.max(0, Math.min(2, value * 2));
             this.bgMusicVolume.gain.rampTo(normalizedVolume, 0.1);
         }
     }

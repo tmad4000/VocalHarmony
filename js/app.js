@@ -156,7 +156,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     bgMusicVolume.addEventListener('input', (e) => {
-        audioProcessor.setBackgroundVolume(e.target.value / 100);
+        const volumePercent = e.target.value;
+        document.getElementById('bgVolumeValue').textContent = `${volumePercent}%`;
+        audioProcessor.setBackgroundVolume(volumePercent / 100);
     });
 
 
