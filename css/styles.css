@@ -91,29 +91,35 @@ h1 {
     text-align: center;
 }
 
-/* Add to existing styles */
+/* Update existing styles */
 .effect-controls {
     display: flex;
     gap: 20px;
     align-items: center;
+    flex-wrap: wrap;
+    width: 100%;
 }
 
 .control-group {
     display: flex;
     flex-direction: column;
     gap: 5px;
+    width: 100%;
+    max-width: 300px;
 }
 
 .slider-container {
     display: flex;
     align-items: center;
     gap: 10px;
+    width: 100%;
 }
 
 .slider-label {
     color: #a0a0a0;
     font-size: 0.8em;
     min-width: 40px;
+    white-space: nowrap;
 }
 
 .slider-label.min {
@@ -124,9 +130,20 @@ h1 {
     text-align: left;
 }
 
-/* Update existing form-range style */
+/* Update form-range style */
 .form-range {
-    width: 200px;
+    width: 100%;
+    min-width: 200px;
     accent-color: #4CAF50;
-    margin: 0;  /* Remove default margins */
+    margin: 0;
+}
+
+/* Add specific styling for background music controls */
+.background-music {
+    width: 100%;
+    max-width: 300px;
+}
+
+.background-music .control-group {
+    margin-top: 10px;
 }
