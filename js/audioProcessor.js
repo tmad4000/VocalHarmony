@@ -3,33 +3,50 @@ class AudioProcessor {
         this.audioContext = null;
         this.analyser = null;
         this.microphone = null;
-        this.pitchDetector = null;
+        this.gainNode = null;
         this.harmonizer = null;
         this.harmonyInterval = 3; // Default to third
+        this.isInitialized = false;
     }
 
     async initialize() {
+        if (this.isInitialized) return;
+
         try {
+            // Initialize audio context
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: false
+                }
+            });
+
             // Create audio source from microphone
             this.microphone = this.audioContext.createMediaStreamSource(stream);
-            
+
             // Create analyser for visualization
             this.analyser = this.audioContext.createAnalyser();
             this.analyser.fftSize = 2048;
-            
+
+            // Create gain node to control volume
+            this.gainNode = this.audioContext.createGain();
+            this.gainNode.gain.value = 0.5; // Reduce volume to prevent feedback
+
             // Create pitch detector
             this.pitchDetector = this.createPitchDetector();
-            
+
             // Create harmonizer
             this.harmonizer = this.createHarmonizer();
-            
+
             // Connect the audio nodes
             this.microphone.connect(this.analyser);
             this.microphone.connect(this.harmonizer);
-            
+            this.harmonizer.connect(this.gainNode);
+            this.gainNode.connect(this.audioContext.destination);
+
+            this.isInitialized = true;
             this.startProcessing();
         } catch (error) {
             console.error('Error initializing audio:', error);
@@ -38,27 +55,26 @@ class AudioProcessor {
     }
 
     createPitchDetector() {
-        const pitchDetector = new Pitchy.PitchDetector({
+        return new Pitchy.PitchDetector({
             audioContext: this.audioContext,
             bufferSize: 2048
         });
-        return pitchDetector;
     }
 
     createHarmonizer() {
         const harmonizer = this.audioContext.createScriptProcessor(2048, 1, 1);
-        
+
         harmonizer.onaudioprocess = (e) => {
             const inputBuffer = e.inputBuffer.getChannelData(0);
             const outputBuffer = e.outputBuffer.getChannelData(0);
-            
+
             // Detect pitch
             const [pitch] = this.pitchDetector.analyzePitch(inputBuffer);
-            
+
             if (pitch && pitch > 0) {
                 // Calculate harmony pitch based on interval
                 const harmonyPitch = this.calculateHarmonyPitch(pitch);
-                
+
                 // Apply pitch shifting
                 this.applyPitchShift(inputBuffer, outputBuffer, pitch, harmonyPitch);
             } else {
@@ -66,8 +82,7 @@ class AudioProcessor {
                 outputBuffer.set(inputBuffer);
             }
         };
-        
-        harmonizer.connect(this.audioContext.destination);
+
         return harmonizer;
     }
 
@@ -79,16 +94,16 @@ class AudioProcessor {
 
     applyPitchShift(inputBuffer, outputBuffer, originalPitch, targetPitch) {
         const pitchRatio = targetPitch / originalPitch;
-        
+
         // Simple pitch shifting using resampling
         let readIndex = 0;
         for (let i = 0; i < outputBuffer.length; i++) {
             readIndex += pitchRatio;
-            
+
             const index1 = Math.floor(readIndex);
             const index2 = Math.ceil(readIndex);
             const fraction = readIndex - index1;
-            
+
             // Linear interpolation
             if (index2 < inputBuffer.length) {
                 outputBuffer[i] = inputBuffer[index1] * (1 - fraction) + 
@@ -104,7 +119,7 @@ class AudioProcessor {
     }
 
     startProcessing() {
-        if (this.audioContext.state === 'suspended') {
+        if (this.audioContext && this.audioContext.state === 'suspended') {
             this.audioContext.resume();
         }
     }
@@ -112,10 +127,17 @@ class AudioProcessor {
     stopProcessing() {
         if (this.audioContext) {
             this.audioContext.suspend();
+            this.isInitialized = false;
         }
     }
 
     getAnalyser() {
         return this.analyser;
+    }
+
+    setGain(value) {
+        if (this.gainNode) {
+            this.gainNode.gain.value = Math.max(0, Math.min(1, value));
+        }
     }
 }
