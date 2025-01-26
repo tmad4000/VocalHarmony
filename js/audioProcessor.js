@@ -26,8 +26,8 @@ class AudioProcessor {
             this.mic = new Tone.UserMedia();
             this.pitchShift = new Tone.PitchShift({
                 pitch: 0,
-                windowSize: 0.05,
-                delayTime: 0.01,
+                windowSize: 0.1,
+                delayTime: 0,
                 feedback: 0,
                 wet: 1
             }).toDestination();
@@ -75,20 +75,32 @@ class AudioProcessor {
         this.mic.disconnect();
         this.pitchShift.disconnect();
         this.crossFade.disconnect();
+        this.gainNode.disconnect();
 
-        if (this.harmonyType.startsWith('voice')) {
-            // Voice harmony setup (with or without formant preservation)
-            if (this.harmonyType === 'voice-formant') {
-                this.pitchShift.set({
-                    windowSize: 0.05,
-                    delayTime: 0.01
-                });
-            } else {
-                this.pitchShift.set({
-                    windowSize: 0.1,
-                    delayTime: 0.1
-                });
-            }
+        if (this.harmonyType === 'voice-basic') {
+            // Basic pitch shift - original implementation without crossfade
+            this.pitchShift.set({
+                windowSize: 0.1,
+                delayTime: 0,
+                feedback: 0
+            });
+
+            this.mic.chain(
+                this.pitchShift,
+                this.gainNode,
+                this.analyser,
+                Tone.Destination
+            );
+
+            // Direct mic monitoring
+            this.mic.connect(this.gainNode);
+
+        } else if (this.harmonyType === 'voice-formant') {
+            // Advanced formant-preserved pitch shifting
+            this.pitchShift.set({
+                windowSize: 0.05,
+                delayTime: 0.01
+            });
 
             this.mic.chain(
                 this.crossFade.a,
@@ -100,6 +112,7 @@ class AudioProcessor {
 
             this.mic.connect(this.crossFade.b);
             this.crossFade.b.connect(this.gainNode);
+
         } else {
             // Instrument harmony setup
             const instrument = this.sampler[this.harmonyType];
@@ -151,10 +164,7 @@ class AudioProcessor {
         if (!this.recordedAudio) return;
 
         const player = new Tone.Player(this.recordedAudio);
-
-        // Connect through the pitch shifter with formant preservation
         player.chain(
-            this.crossFade.a,
             this.pitchShift,
             this.gainNode,
             this.analyser,
@@ -186,13 +196,7 @@ class AudioProcessor {
         }
 
         if (this.harmonyType.startsWith('voice')) {
-            // Update pitch shifter settings
-            this.pitchShift.set({
-                pitch: semitones,
-                windowSize: this.harmonyType === 'voice-formant' ? 0.05 : 0.1,
-                delayTime: this.harmonyType === 'voice-formant' ? 0.01 : 0.1,
-                wet: 1
-            });
+            this.pitchShift.pitch = semitones;
         } else if (this.sampler[this.harmonyType]) {
             // Handle instrument harmony
             const baseNote = 60; // Middle C
@@ -200,8 +204,11 @@ class AudioProcessor {
             this.sampler[this.harmonyType].triggerAttack(Tone.Frequency(newNote, "midi"));
         }
 
-        const crossfadeAmount = Math.min(0.8, Math.abs(semitones) / 12);
-        this.crossFade.fade.value = crossfadeAmount;
+        // Only use crossfade for formant-preserved mode
+        if (this.harmonyType === 'voice-formant') {
+            const crossfadeAmount = Math.min(0.8, Math.abs(semitones) / 12);
+            this.crossFade.fade.value = crossfadeAmount;
+        }
     }
 
     setHarmonyInterval(interval) {
