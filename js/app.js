@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const stopButton = document.getElementById('stopButton');
     const playButton = document.getElementById('playButton');
     const harmonySelect = document.getElementById('harmonySelect');
+    const harmonyTypeSelect = document.getElementById('harmonyTypeSelect');
     const volumeControl = document.getElementById('volumeControl');
 
     const status = document.createElement('div');
@@ -52,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 startButton.textContent = 'Stop';
                 startButton.disabled = false;
-                status.textContent = 'A faefaw Microphone connected and processing audio';
+                status.textContent = 'Microphone connected and processing audio';
                 isProcessing = true;
             } catch (error) {
                 console.error('Failed to start audio processing:', error);
@@ -122,6 +123,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Common controls
     harmonySelect.addEventListener('change', (e) => {
         audioProcessor.setHarmonyInterval(parseInt(e.target.value));
+    });
+
+    // Add harmony type change handler
+    harmonyTypeSelect.addEventListener('change', (e) => {
+        audioProcessor.setHarmonyType(e.target.value);
+        // Update status message based on harmony type
+        const typeText = e.target.options[e.target.selectedIndex].text;
+        status.textContent = `Harmony type changed to: ${typeText}`;
     });
 
     volumeControl.addEventListener('input', (e) => {
