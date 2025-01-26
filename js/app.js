@@ -9,14 +9,31 @@ document.addEventListener('DOMContentLoaded', () => {
     startButton.addEventListener('click', async () => {
         if (!isProcessing) {
             try {
+                startButton.textContent = 'Connecting...';
+                startButton.disabled = true;
+
                 await audioProcessor.initialize();
                 visualizer.setAnalyser(audioProcessor.getAnalyser());
                 visualizer.draw();
+
                 startButton.textContent = 'Stop';
+                startButton.disabled = false;
                 isProcessing = true;
             } catch (error) {
                 console.error('Failed to start audio processing:', error);
-                alert('Failed to access microphone. Please ensure microphone permissions are granted.');
+                let errorMessage = 'An error occurred while accessing the microphone. ';
+
+                if (error.name === 'NotAllowedError') {
+                    errorMessage += 'Please allow microphone access in your browser settings and try again.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage += 'No microphone was found. Please connect a microphone and try again.';
+                } else {
+                    errorMessage += 'Please check your microphone connection and try again.';
+                }
+
+                alert(errorMessage);
+                startButton.textContent = 'Start Microphone';
+                startButton.disabled = false;
             }
         } else {
             audioProcessor.stopProcessing();
