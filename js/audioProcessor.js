@@ -85,14 +85,21 @@ class AudioProcessor {
 
         // Mix original and pitch-shifted signals with adjusted balance
         for (let i = 0; i < outputBuffer.length; i++) {
-            // Adjust mix ratio: 60% original, 40% harmony
-            outputBuffer[i] = 0.6 * inputBuffer[i] + 0.4 * pitchShiftedBuffer[i];
+            // For "No Harmony" option, just output the original signal
+            if (this.harmonyInterval === 1) {
+                outputBuffer[i] = inputBuffer[i];
+            } else {
+                // Adjust mix ratio: 60% original, 40% harmony
+                outputBuffer[i] = 0.6 * inputBuffer[i] + 0.4 * pitchShiftedBuffer[i];
+            }
         }
     }
 
     calculatePitchRatio(interval) {
         const semitoneRatio = Math.pow(2, 1/12);
         switch(parseInt(interval)) {
+            case 1: // No Harmony
+                return 1.0;
             case 3: 
                 return Math.pow(semitoneRatio, 4);
             case 4: 
