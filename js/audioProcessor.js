@@ -15,8 +15,10 @@ class AudioProcessor {
         this.sampler = null;
         this.reverb = null;
         this.bgMusic = null;
+        this.bgMusicNext = null;  // Second player for crossfading
         this.bgMusicVolume = new Tone.Gain(0.5);
         this.currentBgTrack = 'none';
+        this.crossfadeDuration = 2; // 2 seconds crossfade
         this.bgTracks = {
             'acoustic-guitar': 'https://tonejs.github.io/audio/berklee/guitar_chord1.mp3',
             'piano-ambient': 'https://tonejs.github.io/audio/salamander/basicPiano1.mp3',
@@ -32,7 +34,6 @@ class AudioProcessor {
             await Tone.start();
             this.isAsyncMode = isAsync;
 
-            // Create audio nodes
             this.mic = new Tone.UserMedia();
             this.pitchShift = new Tone.PitchShift({
                 pitch: 0,
@@ -42,24 +43,32 @@ class AudioProcessor {
                 wet: 1
             }).toDestination();
 
-            // Create reverb for choir effect
             this.reverb = new Tone.Reverb({
                 decay: 4,
                 preDelay: 0.2,
                 wet: 0.3
             }).toDestination();
 
-            // Initialize background music player
             this.bgMusic = new Tone.Player({
                 loop: true,
                 loopStart: 0,
                 loopEnd: 8,
                 fadeIn: 0.5,
-                fadeOut: 0.5
+                fadeOut: 0.5,
+                volume: 0
             }).connect(this.bgMusicVolume);
+
+            this.bgMusicNext = new Tone.Player({
+                loop: true,
+                loopStart: 0,
+                loopEnd: 8,
+                fadeIn: 0.5,
+                fadeOut: 0.5,
+                volume: -Infinity // Start silent
+            }).connect(this.bgMusicVolume);
+
             this.bgMusicVolume.toDestination();
 
-            // Initialize samplers for different instruments
             this.sampler = {
                 'synth-pad': new Tone.Synth({
                     oscillator: { type: 'sine' },
@@ -68,25 +77,25 @@ class AudioProcessor {
                 'choir': new Tone.PolySynth(Tone.Synth, {
                     voice: new Tone.Synth({
                         oscillator: {
-                            type: "sawtooth8",  // Rich harmonic content
-                            spread: 20,         // Slight detuning for choir effect
-                            count: 3            // Number of detuned oscillators
+                            type: "sawtooth8",
+                            spread: 20,
+                            count: 3
                         },
                         envelope: {
-                            attack: 0.2,        // Soft attack like human voice
+                            attack: 0.2,
                             decay: 0.1,
                             sustain: 1,
-                            release: 0.8        // Natural voice release
+                            release: 0.8
                         }
                     }),
-                    maxPolyphony: 6  // Allow multiple voices
+                    maxPolyphony: 6
                 }).chain(
                     new Tone.Filter({
                         type: "lowpass",
                         frequency: 2000,
                         Q: 1
                     }),
-                    this.reverb  // Add reverb specifically for choir
+                    this.reverb
                 ),
                 'strings': new Tone.Sampler({
                     urls: {
@@ -115,14 +124,12 @@ class AudioProcessor {
     }
 
     setupAudioChain() {
-        // Disconnect existing connections
         this.mic.disconnect();
         this.pitchShift.disconnect();
         this.crossFade.disconnect();
         this.gainNode.disconnect();
 
         if (this.harmonyType === 'voice-basic') {
-            // Basic pitch shift implementation
             this.pitchShift.set({
                 windowSize: 0.1,
                 delayTime: 0,
@@ -136,12 +143,10 @@ class AudioProcessor {
                 Tone.Destination
             );
 
-            // Add direct monitoring
             this.mic.connect(this.gainNode);
             this.gainNode.connect(this.analyser);
 
         } else if (this.harmonyType === 'voice-formant') {
-            // Formant-preserved pitch shifting
             this.pitchShift.set({
                 windowSize: 0.05,
                 delayTime: 0.01
@@ -160,12 +165,10 @@ class AudioProcessor {
             this.gainNode.connect(this.analyser);
 
         } else if (this.harmonyType === 'choir') {
-            // Enhanced choir setup
             this.mic.connect(this.analyser);
             this.mic.connect(Tone.Destination);
 
-            // Create multiple detuned voices for choir effect
-            const detunes = [-10, -5, 0, 5, 10]; // Subtle detuning for each voice
+            const detunes = [-10, -5, 0, 5, 10];
             detunes.forEach(detune => {
                 const voice = this.sampler['choir'].voices[0];
                 voice.detune.value = detune;
@@ -177,7 +180,6 @@ class AudioProcessor {
             this.reverb.connect(Tone.Destination);
 
         } else {
-            // Other instrument harmony setup
             const instrument = this.sampler[this.harmonyType];
             if (instrument) {
                 this.mic.connect(this.analyser);
@@ -249,7 +251,6 @@ class AudioProcessor {
     updatePitchShift() {
         if (!this.pitchShift) return;
 
-        // Calculate semitones based on harmony interval
         let semitones = 0;
         switch(parseInt(this.harmonyInterval)) {
             case 1: semitones = 0; break;
@@ -262,13 +263,11 @@ class AudioProcessor {
         if (this.harmonyType.startsWith('voice')) {
             this.pitchShift.pitch = semitones;
         } else if (this.sampler[this.harmonyType]) {
-            // Handle instrument harmony
-            const baseNote = 60; // Middle C
+            const baseNote = 60;
             const newNote = baseNote + semitones;
             this.sampler[this.harmonyType].triggerAttack(Tone.Frequency(newNote, "midi"));
         }
 
-        // Only use crossfade for formant-preserved mode
         if (this.harmonyType === 'voice-formant') {
             const crossfadeAmount = Math.min(0.8, Math.abs(semitones) / 12);
             this.crossFade.fade.value = crossfadeAmount;
@@ -295,7 +294,18 @@ class AudioProcessor {
 
     async stopProcessing() {
         if (this.bgMusic && this.bgMusic.state === 'started') {
-            await this.bgMusic.stop();
+            const currentTime = Tone.now();
+            this.bgMusic.volume.rampTo(-Infinity, this.crossfadeDuration, currentTime);
+            setTimeout(() => {
+                this.bgMusic.stop();
+            }, this.crossfadeDuration * 1000);
+        }
+        if (this.bgMusicNext && this.bgMusicNext.state === 'started') {
+            const currentTime = Tone.now();
+            this.bgMusicNext.volume.rampTo(-Infinity, this.crossfadeDuration, currentTime);
+            setTimeout(() => {
+                this.bgMusicNext.stop();
+            }, this.crossfadeDuration * 1000);
         }
         if (this.mic) {
             await this.mic.close();
@@ -318,8 +328,12 @@ class AudioProcessor {
 
     async setBackgroundMusic(trackId) {
         if (trackId === 'none') {
-            if (this.bgMusic.state === 'started') {
-                await this.bgMusic.stop();
+            if (this.bgMusic && this.bgMusic.state === 'started') {
+                const currentTime = Tone.now();
+                this.bgMusic.volume.rampTo(-Infinity, this.crossfadeDuration, currentTime);
+                setTimeout(() => {
+                    this.bgMusic.stop();
+                }, this.crossfadeDuration * 1000);
             }
             this.currentBgTrack = 'none';
             return;
@@ -329,15 +343,27 @@ class AudioProcessor {
         if (!trackUrl) return;
 
         try {
-            // Stop current track if playing
-            if (this.bgMusic.state === 'started') {
-                await this.bgMusic.stop();
+            await this.bgMusicNext.load(trackUrl);
+
+            const currentTime = Tone.now();
+
+            if (this.bgMusic && this.bgMusic.state === 'started') {
+                this.bgMusic.volume.rampTo(-Infinity, this.crossfadeDuration, currentTime);
+                this.bgMusicNext.volume.value = -Infinity;
+                await this.bgMusicNext.start();
+                this.bgMusicNext.volume.rampTo(0, this.crossfadeDuration, currentTime);
+
+                setTimeout(() => {
+                    this.bgMusic.stop();
+                    [this.bgMusic, this.bgMusicNext] = [this.bgMusicNext, this.bgMusic];
+                }, this.crossfadeDuration * 1000);
+            } else {
+                this.bgMusicNext.volume.value = 0;
+                await this.bgMusicNext.start();
+                [this.bgMusic, this.bgMusicNext] = [this.bgMusicNext, this.bgMusic];
             }
 
-            // Load and play new track
-            await this.bgMusic.load(trackUrl);
             this.currentBgTrack = trackId;
-            await this.bgMusic.start();
         } catch (error) {
             console.error('Error loading background music:', error);
         }
