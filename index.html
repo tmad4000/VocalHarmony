@@ -50,6 +50,25 @@
                     <option value="choir">Choir Vocals</option>
                     <option value="strings">Strings</option>
                 </select>
+
+                <div class="background-music mt-3">
+                    <label for="bgMusicSelect">Background Music:</label>
+                    <select id="bgMusicSelect" class="form-select">
+                        <option value="none" selected>No Background Music</option>
+                        <option value="acoustic-guitar">Acoustic Guitar</option>
+                        <option value="piano-ambient">Piano Ambient</option>
+                        <option value="soft-drums">Soft Drums</option>
+                        <option value="electronic-pad">Electronic Pad</option>
+                    </select>
+                    <div class="control-group mt-2">
+                        <label for="bgMusicVolume">Background Volume:</label>
+                        <div class="slider-container">
+                            <span class="slider-label min">Quiet</span>
+                            <input type="range" id="bgMusicVolume" min="0" max="100" value="50" class="form-range">
+                            <span class="slider-label max">Loud</span>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="effect-controls">
                 <div class="control-group">

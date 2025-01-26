@@ -15,6 +15,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const harmonyTypeSelect = document.getElementById('harmonyTypeSelect');
     const volumeControl = document.getElementById('volumeControl');
 
+    // Add new UI elements
+    const bgMusicSelect = document.getElementById('bgMusicSelect');
+    const bgMusicVolume = document.getElementById('bgMusicVolume');
+
     const status = document.createElement('div');
     status.className = 'status-message';
     document.querySelector('.controls').appendChild(status);
@@ -136,6 +140,25 @@ document.addEventListener('DOMContentLoaded', () => {
     volumeControl.addEventListener('input', (e) => {
         audioProcessor.setVolume(e.target.value / 100);
     });
+
+    // Add background music controls
+    bgMusicSelect.addEventListener('change', async (e) => {
+        try {
+            await audioProcessor.setBackgroundMusic(e.target.value);
+            const trackName = e.target.options[e.target.selectedIndex].text;
+            status.textContent = trackName === 'No Background Music'
+                ? 'Background music stopped'
+                : `Playing background track: ${trackName}`;
+        } catch (error) {
+            console.error('Error changing background music:', error);
+            status.textContent = 'Error playing background music';
+        }
+    });
+
+    bgMusicVolume.addEventListener('input', (e) => {
+        audioProcessor.setBackgroundVolume(e.target.value / 100);
+    });
+
 
     // Handle page visibility changes
     document.addEventListener('visibilitychange', () => {

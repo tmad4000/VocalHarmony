@@ -14,6 +14,15 @@ class AudioProcessor {
         this.crossFade = null;
         this.sampler = null;
         this.reverb = null;
+        this.bgMusic = null;
+        this.bgMusicVolume = new Tone.Gain(0.5);
+        this.currentBgTrack = 'none';
+        this.bgTracks = {
+            'acoustic-guitar': 'https://tonejs.github.io/audio/berklee/guitar_chord1.mp3',
+            'piano-ambient': 'https://tonejs.github.io/audio/salamander/basicPiano1.mp3',
+            'soft-drums': 'https://tonejs.github.io/audio/drum-samples/loops/ominous.mp3',
+            'electronic-pad': 'https://tonejs.github.io/audio/berklee/ambient_pad.mp3'
+        };
     }
 
     async initialize(isAsync = false) {
@@ -39,6 +48,16 @@ class AudioProcessor {
                 preDelay: 0.2,
                 wet: 0.3
             }).toDestination();
+
+            // Initialize background music player
+            this.bgMusic = new Tone.Player({
+                loop: true,
+                loopStart: 0,
+                loopEnd: 8,
+                fadeIn: 0.5,
+                fadeOut: 0.5
+            }).connect(this.bgMusicVolume);
+            this.bgMusicVolume.toDestination();
 
             // Initialize samplers for different instruments
             this.sampler = {
@@ -275,6 +294,9 @@ class AudioProcessor {
     }
 
     async stopProcessing() {
+        if (this.bgMusic && this.bgMusic.state === 'started') {
+            await this.bgMusic.stop();
+        }
         if (this.mic) {
             await this.mic.close();
         }
@@ -292,5 +314,38 @@ class AudioProcessor {
 
     getAnalyser() {
         return this.analyser;
+    }
+
+    async setBackgroundMusic(trackId) {
+        if (trackId === 'none') {
+            if (this.bgMusic.state === 'started') {
+                await this.bgMusic.stop();
+            }
+            this.currentBgTrack = 'none';
+            return;
+        }
+
+        const trackUrl = this.bgTracks[trackId];
+        if (!trackUrl) return;
+
+        try {
+            // Stop current track if playing
+            if (this.bgMusic.state === 'started') {
+                await this.bgMusic.stop();
+            }
+
+            // Load and play new track
+            await this.bgMusic.load(trackUrl);
+            this.currentBgTrack = trackId;
+            await this.bgMusic.start();
+        } catch (error) {
+            console.error('Error loading background music:', error);
+        }
+    }
+
+    setBackgroundVolume(value) {
+        if (this.bgMusicVolume) {
+            this.bgMusicVolume.gain.value = Math.max(0, Math.min(1, value));
+        }
     }
 }
