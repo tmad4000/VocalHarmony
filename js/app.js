@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const startButton = document.getElementById('startButton');
     const harmonySelect = document.getElementById('harmonySelect');
+    const antiAliasControl = document.getElementById('antiAliasControl');
+    const reverbControl = document.getElementById('reverbControl');
     const status = document.createElement('div');
     status.className = 'status-message';
     document.querySelector('.controls').appendChild(status);
@@ -41,7 +43,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 status.textContent = errorMessage;
-                alert(errorMessage);
                 startButton.textContent = 'Start Microphone';
                 startButton.disabled = false;
             }
@@ -59,6 +60,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     harmonySelect.addEventListener('change', (e) => {
         audioProcessor.setHarmonyInterval(parseInt(e.target.value));
+    });
+
+    // Add event listeners for new controls
+    antiAliasControl.addEventListener('input', (e) => {
+        audioProcessor.setAntiAliasing(parseInt(e.target.value));
+    });
+
+    reverbControl.addEventListener('input', (e) => {
+        audioProcessor.setReverb(parseInt(e.target.value));
     });
 
     // Handle page visibility changes

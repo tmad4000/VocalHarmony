@@ -19,6 +19,7 @@ h1 {
     display: flex;
     gap: 20px;
     align-items: center;
+    flex-wrap: wrap;
 }
 
 .harmony-controls {
@@ -88,4 +89,21 @@ h1 {
     color: #666;
     font-size: 14px;
     text-align: center;
+}
+
+/* Add to existing styles */
+.effect-controls {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-range {
+    width: 150px;
 }
