@@ -14,124 +14,125 @@
         <h1>Professional Voice Harmonizer</h1>
 
         <div class="controls">
-            <button id="startButton" class="btn btn-primary">Start Microphone</button>
+            <!-- Basic Controls -->
+            <div class="basic-controls">
+                <button id="startButton" class="btn btn-primary">Start Microphone</button>
 
-            <div class="main-controls">
-                <div class="harmony-controls">
-                    <label for="harmonySelect">Harmony Mode:</label>
-                    <select id="harmonySelect" class="form-select">
-                        <option value="parallel">Parallel Harmony</option>
-                        <option value="counter">Counter Melody</option>
-                        <option value="chord">Chord Mode</option>
-                    </select>
+                <div class="main-controls">
+                    <div class="harmony-controls">
+                        <label for="intervalSelect">Harmony Interval:</label>
+                        <select id="intervalSelect" class="form-select">
+                            <option value="3">Third Above</option>
+                            <option value="4">Fourth Above</option>
+                            <option value="5">Fifth Above</option>
+                            <option value="7">Seventh Above</option>
+                        </select>
+                    </div>
 
-                    <label for="intervalSelect">Interval:</label>
-                    <select id="intervalSelect" class="form-select">
-                        <option value="3">Third Above</option>
-                        <option value="4">Fourth Above</option>
-                        <option value="5">Fifth Above</option>
-                        <option value="7">Seventh Above</option>
-                    </select>
-                </div>
-
-                <div class="pitch-controls">
-                    <div class="form-check">
-                        <input type="checkbox" id="pitchCorrection" class="form-check-input" checked>
-                        <label class="form-check-label" for="pitchCorrection">Pitch Correction</label>
+                    <div class="effect-controls">
+                        <div class="control-group">
+                            <label for="reverbControl">Reverb Mix:</label>
+                            <input type="range" id="reverbControl" min="0" max="100" value="0" class="form-range">
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="processing-controls">
-                <div class="compression-section">
-                    <h3>Multiband Compression</h3>
-                    <div class="band-controls">
-                        <div class="band low-band">
-                            <h4>Low Band</h4>
-                            <div class="comp-control">
-                                <label>Threshold</label>
-                                <input type="range" class="form-range" min="-60" max="0" value="-24" data-band="low" data-param="threshold">
-                            </div>
-                            <div class="comp-control">
-                                <label>Ratio</label>
-                                <input type="range" class="form-range" min="1" max="20" value="4" data-band="low" data-param="ratio">
-                            </div>
-                        </div>
+            <!-- Advanced Controls Toggle -->
+            <button class="advanced-toggle btn btn-outline-success" onclick="toggleAdvancedControls()">
+                <span class="toggle-text">Show Advanced Controls</span>
+                <span class="toggle-icon">▼</span>
+            </button>
 
-                        <div class="band mid-band">
-                            <h4>Mid Band</h4>
-                            <div class="comp-control">
-                                <label>Threshold</label>
-                                <input type="range" class="form-range" min="-60" max="0" value="-24" data-band="mid" data-param="threshold">
+            <!-- Advanced Controls Panel -->
+            <div class="advanced-controls" style="display: none;">
+                <div class="processing-controls">
+                    <div class="compression-section">
+                        <h3>Multiband Compression</h3>
+                        <div class="band-controls">
+                            <div class="band low-band">
+                                <h4>Low Band</h4>
+                                <div class="comp-control">
+                                    <label>Threshold</label>
+                                    <input type="range" class="form-range" min="-60" max="0" value="-24" data-band="low" data-param="threshold">
+                                </div>
+                                <div class="comp-control">
+                                    <label>Ratio</label>
+                                    <input type="range" class="form-range" min="1" max="20" value="4" data-band="low" data-param="ratio">
+                                </div>
                             </div>
-                            <div class="comp-control">
-                                <label>Ratio</label>
-                                <input type="range" class="form-range" min="1" max="20" value="4" data-band="mid" data-param="ratio">
-                            </div>
-                        </div>
 
-                        <div class="band high-band">
-                            <h4>High Band</h4>
-                            <div class="comp-control">
-                                <label>Threshold</label>
-                                <input type="range" class="form-range" min="-60" max="0" value="-24" data-band="high" data-param="threshold">
+                            <div class="band mid-band">
+                                <h4>Mid Band</h4>
+                                <div class="comp-control">
+                                    <label>Threshold</label>
+                                    <input type="range" class="form-range" min="-60" max="0" value="-24" data-band="mid" data-param="threshold">
+                                </div>
+                                <div class="comp-control">
+                                    <label>Ratio</label>
+                                    <input type="range" class="form-range" min="1" max="20" value="4" data-band="mid" data-param="ratio">
+                                </div>
                             </div>
-                            <div class="comp-control">
-                                <label>Ratio</label>
-                                <input type="range" class="form-range" min="1" max="20" value="4" data-band="high" data-param="ratio">
+
+                            <div class="band high-band">
+                                <h4>High Band</h4>
+                                <div class="comp-control">
+                                    <label>Threshold</label>
+                                    <input type="range" class="form-range" min="-60" max="0" value="-24" data-band="high" data-param="threshold">
+                                </div>
+                                <div class="comp-control">
+                                    <label>Ratio</label>
+                                    <input type="range" class="form-range" min="1" max="20" value="4" data-band="high" data-param="ratio">
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="eq-section">
-                    <h3>Parametric EQ</h3>
-                    <div class="eq-controls">
-                        <div class="eq-band">
-                            <label>100 Hz</label>
-                            <input type="range" class="form-range vertical" min="-12" max="12" value="0" data-band="0">
+                    <div class="eq-section">
+                        <h3>Parametric EQ</h3>
+                        <div class="eq-controls">
+                            <div class="eq-band">
+                                <label>100 Hz</label>
+                                <input type="range" class="form-range vertical" min="-12" max="12" value="0" data-band="0">
+                            </div>
+                            <div class="eq-band">
+                                <label>400 Hz</label>
+                                <input type="range" class="form-range vertical" min="-12" max="12" value="0" data-band="1">
+                            </div>
+                            <div class="eq-band">
+                                <label>1 kHz</label>
+                                <input type="range" class="form-range vertical" min="-12" max="12" value="0" data-band="2">
+                            </div>
+                            <div class="eq-band">
+                                <label>2.5 kHz</label>
+                                <input type="range" class="form-range vertical" min="-12" max="12" value="0" data-band="3">
+                            </div>
+                            <div class="eq-band">
+                                <label>8 kHz</label>
+                                <input type="range" class="form-range vertical" min="-12" max="12" value="0" data-band="4">
+                            </div>
                         </div>
-                        <div class="eq-band">
-                            <label>400 Hz</label>
-                            <input type="range" class="form-range vertical" min="-12" max="12" value="0" data-band="1">
-                        </div>
-                        <div class="eq-band">
-                            <label>1 kHz</label>
-                            <input type="range" class="form-range vertical" min="-12" max="12" value="0" data-band="2">
-                        </div>
-                        <div class="eq-band">
-                            <label>2.5 kHz</label>
-                            <input type="range" class="form-range vertical" min="-12" max="12" value="0" data-band="3">
-                        </div>
-                        <div class="eq-band">
-                            <label>8 kHz</label>
-                            <input type="range" class="form-range vertical" min="-12" max="12" value="0" data-band="4">
-                        </div>
+                        <canvas id="eqVisualizer"></canvas>
                     </div>
-                    <canvas id="eqVisualizer"></canvas>
-                </div>
 
-                <div class="spatial-controls">
-                    <h3>Spatial Processing</h3>
-                    <div class="control-group">
-                        <label for="stereoWidth">Stereo Width</label>
-                        <input type="range" id="stereoWidth" class="form-range" min="0" max="100" value="50">
+                    <div class="spatial-controls">
+                        <h3>Spatial Processing</h3>
+                        <div class="control-group">
+                            <label for="stereoWidth">Stereo Width</label>
+                            <input type="range" id="stereoWidth" class="form-range" min="0" max="100" value="50">
+                        </div>
                     </div>
-                    <div class="control-group">
-                        <label for="reverbMix">Reverb Mix</label>
-                        <input type="range" id="reverbMix" class="form-range" min="0" max="100" value="0">
-                    </div>
-                </div>
 
-                <div class="dynamics-controls">
-                    <h3>Dynamics</h3>
-                    <div class="control-group">
-                        <label for="noiseGate">Noise Gate</label>
-                        <input type="range" id="noiseGate" class="form-range" min="0" max="100" value="0">
-                    </div>
-                    <div class="control-group">
-                        <label for="inputGain">Input Gain</label>
-                        <input type="range" id="inputGain" class="form-range" min="0" max="100" value="50">
+                    <div class="dynamics-controls">
+                        <h3>Dynamics</h3>
+                        <div class="control-group">
+                            <label for="noiseGate">Noise Gate</label>
+                            <input type="range" id="noiseGate" class="form-range" min="0" max="100" value="0">
+                        </div>
+                        <div class="control-group">
+                            <label for="inputGain">Input Gain</label>
+                            <input type="range" id="inputGain" class="form-range" min="0" max="100" value="50">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -148,10 +149,6 @@
                     <label>Output Level</label>
                     <div id="outputLevel" class="level-meter"></div>
                 </div>
-                <div class="meter">
-                    <label>Pitch</label>
-                    <div id="pitchDisplay"></div>
-                </div>
             </div>
         </div>
     </div>
@@ -159,5 +156,23 @@
     <script src="js/visualizer.js"></script>
     <script src="js/audioProcessor.js"></script>
     <script src="js/app.js"></script>
+    <script>
+        function toggleAdvancedControls() {
+            const advancedControls = document.querySelector('.advanced-controls');
+            const toggleButton = document.querySelector('.advanced-toggle');
+            const toggleText = toggleButton.querySelector('.toggle-text');
+            const toggleIcon = toggleButton.querySelector('.toggle-icon');
+
+            if (advancedControls.style.display === 'none') {
+                advancedControls.style.display = 'block';
+                toggleText.textContent = 'Hide Advanced Controls';
+                toggleIcon.textContent = '▲';
+            } else {
+                advancedControls.style.display = 'none';
+                toggleText.textContent = 'Show Advanced Controls';
+                toggleIcon.textContent = '▼';
+            }
+        }
+    </script>
 </body>
 </html>
