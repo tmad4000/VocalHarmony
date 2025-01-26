@@ -22,9 +22,9 @@ class AudioProcessor {
 
             const stream = await navigator.mediaDevices.getUserMedia({ 
                 audio: {
-                    echoCancellation: true,      // Enable echo cancellation
-                    noiseSuppression: true,      // Enable noise suppression
-                    autoGainControl: true        // Enable auto gain control
+                    echoCancellation: true,      // Keep echo cancellation
+                    noiseSuppression: true,      // Keep noise suppression
+                    autoGainControl: false       // Disable auto gain control for more consistent levels
                 }
             });
 
@@ -32,31 +32,31 @@ class AudioProcessor {
             this.microphone = this.audioContext.createMediaStreamSource(stream);
             this.analyser = this.audioContext.createAnalyser();
 
-            // Create compressor to control dynamics
+            // Create compressor with gentler settings
             this.compressor = this.audioContext.createDynamicsCompressor();
-            this.compressor.threshold.value = -24;
-            this.compressor.knee.value = 30;
-            this.compressor.ratio.value = 12;
-            this.compressor.attack.value = 0.003;
-            this.compressor.release.value = 0.25;
+            this.compressor.threshold.value = -18;  // Raised from -24
+            this.compressor.knee.value = 20;       // Reduced from 30 for smoother compression
+            this.compressor.ratio.value = 6;       // Reduced from 12 for gentler compression
+            this.compressor.attack.value = 0.005;  // Slightly slower attack
+            this.compressor.release.value = 0.15;  // Faster release
 
-            // Create limiter to prevent clipping
+            // Create limiter with gentler settings
             this.limiter = this.audioContext.createDynamicsCompressor();
-            this.limiter.threshold.value = -6;
+            this.limiter.threshold.value = -3;    // Raised from -6
             this.limiter.knee.value = 0;
-            this.limiter.ratio.value = 20;
-            this.limiter.attack.value = 0.001;
-            this.limiter.release.value = 0.1;
+            this.limiter.ratio.value = 12;        // Reduced from 20
+            this.limiter.attack.value = 0.002;    // Slightly slower attack
+            this.limiter.release.value = 0.05;    // Faster release
 
-            // Create notch filter for feedback suppression
+            // Create narrower notch filter for more precise feedback suppression
             this.notchFilter = this.audioContext.createBiquadFilter();
             this.notchFilter.type = 'notch';
             this.notchFilter.frequency.value = 1000;
-            this.notchFilter.Q.value = 1;
+            this.notchFilter.Q.value = 4.5;        // Increased from 1 for narrower notch
 
-            // Create gain node with lower initial value
+            // Create gain node
             this.gainNode = this.audioContext.createGain();
-            this.gainNode.gain.value = 0.6; // Reduced from 0.8 to prevent initial feedback
+            this.gainNode.gain.value = 0.7;        // Slightly increased from 0.6
 
             // Create harmonizer effect node
             this.harmonizer = this.audioContext.createScriptProcessor(2048, 1, 1);
@@ -133,8 +133,8 @@ class AudioProcessor {
 
     setGain(value) {
         if (this.gainNode) {
-            // Clamp gain value between 0 and 0.8 to prevent feedback
-            this.gainNode.gain.value = Math.max(0, Math.min(0.8, value));
+            // Allow slightly higher maximum gain while still preventing extreme feedback
+            this.gainNode.gain.value = Math.max(0, Math.min(0.9, value));
         }
     }
 }
