@@ -1,4 +1,4 @@
-modules = ["python-3.11"]
+modules = ["python-3.11", "nodejs-20"]
 
 [workflows]
 runButton = "Project"
@@ -24,16 +24,20 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python3 -m http.server --bind 0.0.0.0 8080"
-waitForPort = 8080
+args = "npx http-server . --port 5000 --cors -c-1"
+waitForPort = 5000
 
 [deployment]
-run = ["sh", "-c", "python3 -m http.server --bind 0.0.0.0 8080"]
+run = ["sh", "-c", "npx http-server . --port 5000 --cors -c-1"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
 localPort = 3000
 externalPort = 3000
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
 
 [[ports]]
 localPort = 8000
@@ -42,3 +46,6 @@ externalPort = 80
 [[ports]]
 localPort = 8080
 externalPort = 8080
+
+[nix]
+channel = "stable-24_05"
