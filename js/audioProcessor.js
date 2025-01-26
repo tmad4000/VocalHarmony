@@ -326,6 +326,14 @@ class AudioProcessor {
         return this.analyser;
     }
 
+    setBackgroundVolume(value) {
+        if (this.bgMusicVolume) {
+            // Normalize the volume between 0 and 1, with a slight boost
+            const normalizedVolume = Math.max(0, Math.min(1.2, value));
+            this.bgMusicVolume.gain.rampTo(normalizedVolume, 0.1);
+        }
+    }
+
     async setBackgroundMusic(trackId) {
         if (trackId === 'none') {
             if (this.bgMusic && this.bgMusic.state === 'started') {
@@ -351,14 +359,18 @@ class AudioProcessor {
                 this.bgMusic.volume.rampTo(-Infinity, this.crossfadeDuration, currentTime);
                 this.bgMusicNext.volume.value = -Infinity;
                 await this.bgMusicNext.start();
-                this.bgMusicNext.volume.rampTo(0, this.crossfadeDuration, currentTime);
+                // Apply current volume setting when starting new track
+                const currentVolume = this.bgMusicVolume.gain.value;
+                this.bgMusicNext.volume.rampTo(currentVolume, this.crossfadeDuration, currentTime);
 
                 setTimeout(() => {
                     this.bgMusic.stop();
                     [this.bgMusic, this.bgMusicNext] = [this.bgMusicNext, this.bgMusic];
                 }, this.crossfadeDuration * 1000);
             } else {
-                this.bgMusicNext.volume.value = 0;
+                // Apply current volume setting for initial track
+                const currentVolume = this.bgMusicVolume.gain.value;
+                this.bgMusicNext.volume.value = currentVolume;
                 await this.bgMusicNext.start();
                 [this.bgMusic, this.bgMusicNext] = [this.bgMusicNext, this.bgMusic];
             }
@@ -366,12 +378,6 @@ class AudioProcessor {
             this.currentBgTrack = trackId;
         } catch (error) {
             console.error('Error loading background music:', error);
-        }
-    }
-
-    setBackgroundVolume(value) {
-        if (this.bgMusicVolume) {
-            this.bgMusicVolume.gain.value = Math.max(0, Math.min(1, value));
         }
     }
 }
