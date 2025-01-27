@@ -20,6 +20,7 @@ class AudioProcessor {
         this.currentBgTrack = 'none';
         this.crossfadeDuration = 2;
         this.lowPassFilter = null;
+        this.secondaryLowPass = null; // Added secondary low-pass filter
         this.bgTracks = {
             'acoustic-guitar': 'https://tonejs.github.io/audio/berklee/guitar_chord1.mp3',
             'piano-ambient': 'https://tonejs.github.io/audio/salamander/basicPiano1.mp3',
@@ -40,10 +41,15 @@ class AudioProcessor {
 
             this.lowPassFilter = new Tone.Filter({
                 type: "lowpass",
-                frequency: 2000,
-                rolloff: -24,
-                Q: 1
+                frequency: 10000, // Set cutoff to 10kHz
+                rolloff: -48,    // Steeper rolloff for more aggressive filtering
+                Q: 5            // Higher Q factor for sharper cutoff
             }).toDestination();
+
+            // When filter is disabled, set frequency very high to effectively bypass
+            if (!this.isLowPassEnabled) {
+                this.lowPassFilter.frequency.value = 20000;
+            }
 
             this.pitchShift = new Tone.PitchShift({
                 pitch: 0,
@@ -51,6 +57,13 @@ class AudioProcessor {
                 delayTime: 0,
                 feedback: 0,
                 wet: 1
+            }).toDestination();
+
+            this.secondaryLowPass = new Tone.Filter({
+                type: "lowpass",
+                frequency: 10000,
+                rolloff: -48,
+                Q: 5
             }).toDestination();
 
             this.reverb = new Tone.Reverb({
@@ -139,10 +152,12 @@ class AudioProcessor {
         this.crossFade.disconnect();
         this.gainNode.disconnect();
         this.lowPassFilter.disconnect();
+        this.secondaryLowPass.disconnect();
 
         if (this.harmonyType === 'voice-basic') {
             this.mic.chain(
                 this.lowPassFilter,
+                this.secondaryLowPass,  // Add second filter stage
                 this.pitchShift,
                 this.gainNode,
                 this.analyser,
@@ -156,6 +171,7 @@ class AudioProcessor {
         } else if (this.harmonyType === 'voice-formant') {
             this.mic.chain(
                 this.lowPassFilter,
+                this.secondaryLowPass,  // Add second filter stage
                 this.crossFade.a,
                 this.pitchShift,
                 this.gainNode,
@@ -385,11 +401,17 @@ class AudioProcessor {
 
     toggleLowPassFilter(enabled) {
         this.isLowPassEnabled = enabled;
-        if (this.lowPassFilter) {
+        if (this.lowPassFilter && this.secondaryLowPass) {
             if (enabled) {
-                this.lowPassFilter.frequency.value = 2000;
+                this.lowPassFilter.frequency.value = 10000;    // 10kHz cutoff
+                this.secondaryLowPass.frequency.value = 10000; // Second stage at 10kHz
+                this.lowPassFilter.Q.value = 5;               // Sharper cutoff
+                this.secondaryLowPass.Q.value = 5;           // Sharper cutoff
             } else {
-                this.lowPassFilter.frequency.value = 20000;
+                this.lowPassFilter.frequency.value = 20000;    // Effectively disabled
+                this.secondaryLowPass.frequency.value = 20000; // Effectively disabled
+                this.lowPassFilter.Q.value = 1;               // Reset Q
+                this.secondaryLowPass.Q.value = 1;           // Reset Q
             }
         }
         if (this.isInitialized && !this.isAsyncMode) {
