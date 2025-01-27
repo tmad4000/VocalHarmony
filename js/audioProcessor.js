@@ -136,7 +136,11 @@ class AudioProcessor {
 
             this.crossFade = new Tone.CrossFade(0.5);
             this.gainNode = new Tone.Gain(0.8);
-            this.analyser = new Tone.Analyser("waveform", 2048);
+            this.analyser = new Tone.Analyser({
+                type: "waveform",
+                size: 2048,
+                smoothing: 0.8
+            });
 
             await this.mic.open();
 
@@ -159,6 +163,7 @@ class AudioProcessor {
         this.gainNode.disconnect();
         this.lowPassFilter.disconnect();
         this.secondaryLowPass.disconnect();
+        this.analyser.disconnect();
 
         if (this.harmonyType === 'voice-basic') {
             this.mic.chain(
@@ -168,7 +173,8 @@ class AudioProcessor {
                 this.gainNode,
                 this.analyser
             );
-            this.gainNode.connect(Tone.Destination);
+            // Connect to destination after analyzer to ensure spectrum display works
+            this.analyser.connect(Tone.Destination);
 
         } else if (this.harmonyType === 'voice-formant') {
             this.mic.connect(this.lowPassFilter);
@@ -181,16 +187,16 @@ class AudioProcessor {
             this.crossFade.b.connect(this.gainNode);
 
             this.gainNode.connect(this.analyser);
-            this.gainNode.connect(Tone.Destination);
+            this.analyser.connect(Tone.Destination);
 
         } else {
             this.mic.chain(
                 this.lowPassFilter,
                 this.secondaryLowPass,
                 this.gainNode,
-                this.analyser,
-                Tone.Destination
+                this.analyser
             );
+            this.analyser.connect(Tone.Destination);
         }
     }
 
