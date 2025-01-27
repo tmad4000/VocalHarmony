@@ -133,7 +133,7 @@
                                 id="antiAliasControl"
                                 min="0"
                                 max="100"
-                                value="100"
+                                value="50"
                                 class="form-range"
                             />
                             <span class="slider-label max">More</span>
@@ -148,7 +148,7 @@
                                 id="reverbControl"
                                 min="0"
                                 max="100"
-                                value="0"
+                                value="50"
                                 class="form-range"
                             />
                             <span class="slider-label max">Wet</span>
@@ -274,7 +274,11 @@
                             window.webkitAudioContext)();
                         const stream =
                             await navigator.mediaDevices.getUserMedia({
-                                audio: true,
+                                audio: {
+                                        echoCancellation: true,
+                                        noiseSuppression: true,
+                                        autoGainControl: true
+                                      },
                             });
 
                         // Create and connect audio nodes
