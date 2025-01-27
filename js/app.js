@@ -170,13 +170,4 @@ document.addEventListener('DOMContentLoaded', () => {
             audioProcessor.startProcessing();
         }
     });
-
-    // Add low-pass filter toggle handler
-    const lowPassToggle = document.getElementById('lowPassToggle');
-    lowPassToggle.addEventListener('change', (e) => {
-        audioProcessor.toggleLowPassFilter(e.target.checked);
-        status.textContent = e.target.checked ?
-            'Low-pass filter enabled - reducing feedback' :
-            'Low-pass filter disabled';
-    });
 });
