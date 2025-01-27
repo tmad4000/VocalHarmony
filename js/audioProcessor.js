@@ -15,10 +15,11 @@ class AudioProcessor {
         this.sampler = null;
         this.reverb = null;
         this.bgMusic = null;
-        this.bgMusicNext = null;  // Second player for crossfading
+        this.bgMusicNext = null;
         this.bgMusicVolume = new Tone.Gain(0.5);
         this.currentBgTrack = 'none';
-        this.crossfadeDuration = 2; // 2 seconds crossfade
+        this.crossfadeDuration = 2;
+        this.lowPassFilter = null;  // New low-pass filter
         this.bgTracks = {
             'acoustic-guitar': 'https://tonejs.github.io/audio/berklee/guitar_chord1.mp3',
             'piano-ambient': 'https://tonejs.github.io/audio/salamander/basicPiano1.mp3',
@@ -35,6 +36,15 @@ class AudioProcessor {
             this.isAsyncMode = isAsync;
 
             this.mic = new Tone.UserMedia();
+
+            // Initialize low-pass filter
+            this.lowPassFilter = new Tone.Filter({
+                type: "lowpass",
+                frequency: 2000, // Cut off frequencies above 2kHz
+                rolloff: -24,    // Steeper rolloff for better feedback prevention
+                Q: 1            // Quality factor
+            }).toDestination();
+
             this.pitchShift = new Tone.PitchShift({
                 pitch: 0,
                 windowSize: 0.1,
@@ -128,15 +138,11 @@ class AudioProcessor {
         this.pitchShift.disconnect();
         this.crossFade.disconnect();
         this.gainNode.disconnect();
+        this.lowPassFilter.disconnect();
 
         if (this.harmonyType === 'voice-basic') {
-            this.pitchShift.set({
-                windowSize: 0.1,
-                delayTime: 0,
-                feedback: 0
-            });
-
             this.mic.chain(
+                this.lowPassFilter,    // Add filter to chain
                 this.pitchShift,
                 this.gainNode,
                 this.analyser,
@@ -147,12 +153,8 @@ class AudioProcessor {
             this.gainNode.connect(this.analyser);
 
         } else if (this.harmonyType === 'voice-formant') {
-            this.pitchShift.set({
-                windowSize: 0.05,
-                delayTime: 0.01
-            });
-
             this.mic.chain(
+                this.lowPassFilter,    // Add filter to chain
                 this.crossFade.a,
                 this.pitchShift,
                 this.gainNode,
@@ -165,8 +167,9 @@ class AudioProcessor {
             this.gainNode.connect(this.analyser);
 
         } else if (this.harmonyType === 'choir') {
-            this.mic.connect(this.analyser);
-            this.mic.connect(Tone.Destination);
+            this.mic.connect(this.lowPassFilter);  // Connect through filter
+            this.lowPassFilter.connect(this.analyser);
+            this.lowPassFilter.connect(Tone.Destination);
 
             const detunes = [-10, -5, 0, 5, 10];
             detunes.forEach(detune => {
@@ -182,8 +185,9 @@ class AudioProcessor {
         } else {
             const instrument = this.sampler[this.harmonyType];
             if (instrument) {
-                this.mic.connect(this.analyser);
-                this.mic.connect(Tone.Destination);
+                this.mic.connect(this.lowPassFilter);  // Connect through filter
+                this.lowPassFilter.connect(this.analyser);
+                this.lowPassFilter.connect(Tone.Destination);
                 instrument.connect(this.gainNode);
                 this.gainNode.connect(this.analyser);
                 this.gainNode.connect(Tone.Destination);
