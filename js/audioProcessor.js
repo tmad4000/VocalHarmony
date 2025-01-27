@@ -20,7 +20,7 @@ class AudioProcessor {
         this.currentBgTrack = 'none';
         this.crossfadeDuration = 2;
         this.lowPassFilter = null;
-        this.secondaryLowPass = null; // Added secondary low-pass filter
+        this.secondaryLowPass = null;
         this.bgTracks = {
             'acoustic-guitar': 'https://tonejs.github.io/audio/berklee/guitar_chord1.mp3',
             'piano-ambient': 'https://tonejs.github.io/audio/salamander/basicPiano1.mp3',
@@ -39,16 +39,29 @@ class AudioProcessor {
 
             this.mic = new Tone.UserMedia();
 
+            // First low-pass filter stage
             this.lowPassFilter = new Tone.Filter({
                 type: "lowpass",
-                frequency: 10000, // Set cutoff to 10kHz
-                rolloff: -48,    // Steeper rolloff for more aggressive filtering
-                Q: 5            // Higher Q factor for sharper cutoff
-            }).toDestination();
+                frequency: 5000,     // Lower cutoff to 5kHz
+                rolloff: -96,        // Extremely steep rolloff
+                Q: 0.5               // Lower Q to prevent ringing
+            });
 
-            // When filter is disabled, set frequency very high to effectively bypass
+            // Second low-pass filter stage
+            this.secondaryLowPass = new Tone.Filter({
+                type: "lowpass",
+                frequency: 5000,     // Match first filter
+                rolloff: -96,        // Extremely steep rolloff
+                Q: 0.5               // Lower Q to prevent ringing
+            });
+
+            // Connect filters to destination
+            this.lowPassFilter.connect(this.secondaryLowPass);
+            this.secondaryLowPass.toDestination();
+
             if (!this.isLowPassEnabled) {
                 this.lowPassFilter.frequency.value = 20000;
+                this.secondaryLowPass.frequency.value = 20000;
             }
 
             this.pitchShift = new Tone.PitchShift({
@@ -57,14 +70,7 @@ class AudioProcessor {
                 delayTime: 0,
                 feedback: 0,
                 wet: 1
-            }).toDestination();
-
-            this.secondaryLowPass = new Tone.Filter({
-                type: "lowpass",
-                frequency: 10000,
-                rolloff: -48,
-                Q: 5
-            }).toDestination();
+            }).connect(this.lowPassFilter);
 
             this.reverb = new Tone.Reverb({
                 decay: 4,
@@ -157,58 +163,34 @@ class AudioProcessor {
         if (this.harmonyType === 'voice-basic') {
             this.mic.chain(
                 this.lowPassFilter,
-                this.secondaryLowPass,  // Add second filter stage
+                this.secondaryLowPass,
                 this.pitchShift,
                 this.gainNode,
-                this.analyser,
-                Tone.Destination
+                this.analyser
             );
-
-            this.mic.connect(this.gainNode);
-            this.gainNode.connect(this.analyser);
-
+            this.gainNode.connect(Tone.Destination);
 
         } else if (this.harmonyType === 'voice-formant') {
-            this.mic.chain(
-                this.lowPassFilter,
-                this.secondaryLowPass,  // Add second filter stage
-                this.crossFade.a,
-                this.pitchShift,
-                this.gainNode,
-                this.analyser,
-                Tone.Destination
-            );
+            this.mic.connect(this.lowPassFilter);
+            this.lowPassFilter.connect(this.secondaryLowPass);
+            this.secondaryLowPass.connect(this.crossFade.a);
+            this.crossFade.a.connect(this.pitchShift);
+            this.pitchShift.connect(this.gainNode);
 
             this.mic.connect(this.crossFade.b);
             this.crossFade.b.connect(this.gainNode);
-            this.gainNode.connect(this.analyser);
-
-        } else if (this.harmonyType === 'choir') {
-            this.mic.connect(this.lowPassFilter);
-            this.lowPassFilter.connect(this.analyser);
-            this.lowPassFilter.connect(Tone.Destination);
-
-            const detunes = [-10, -5, 0, 5, 10];
-            detunes.forEach(detune => {
-                const voice = this.sampler['choir'].voices[0];
-                voice.detune.value = detune;
-                voice.connect(this.gainNode);
-            });
 
             this.gainNode.connect(this.analyser);
-            this.gainNode.connect(this.reverb);
-            this.reverb.connect(Tone.Destination);
+            this.gainNode.connect(Tone.Destination);
 
         } else {
-            const instrument = this.sampler[this.harmonyType];
-            if (instrument) {
-                this.mic.connect(this.lowPassFilter);
-                this.lowPassFilter.connect(this.analyser);
-                this.lowPassFilter.connect(Tone.Destination);
-                instrument.connect(this.gainNode);
-                this.gainNode.connect(this.analyser);
-                this.gainNode.connect(Tone.Destination);
-            }
+            this.mic.chain(
+                this.lowPassFilter,
+                this.secondaryLowPass,
+                this.gainNode,
+                this.analyser,
+                Tone.Destination
+            );
         }
     }
 
@@ -403,15 +385,15 @@ class AudioProcessor {
         this.isLowPassEnabled = enabled;
         if (this.lowPassFilter && this.secondaryLowPass) {
             if (enabled) {
-                this.lowPassFilter.frequency.value = 10000;    // 10kHz cutoff
-                this.secondaryLowPass.frequency.value = 10000; // Second stage at 10kHz
-                this.lowPassFilter.Q.value = 5;               // Sharper cutoff
-                this.secondaryLowPass.Q.value = 5;           // Sharper cutoff
+                this.lowPassFilter.frequency.rampTo(5000, 0.1);
+                this.secondaryLowPass.frequency.rampTo(5000, 0.1);
+                this.lowPassFilter.Q.value = 0.5;
+                this.secondaryLowPass.Q.value = 0.5;
             } else {
-                this.lowPassFilter.frequency.value = 20000;    // Effectively disabled
-                this.secondaryLowPass.frequency.value = 20000; // Effectively disabled
-                this.lowPassFilter.Q.value = 1;               // Reset Q
-                this.secondaryLowPass.Q.value = 1;           // Reset Q
+                this.lowPassFilter.frequency.rampTo(20000, 0.1);
+                this.secondaryLowPass.frequency.rampTo(20000, 0.1);
+                this.lowPassFilter.Q.value = 0.1;
+                this.secondaryLowPass.Q.value = 0.1;
             }
         }
         if (this.isInitialized && !this.isAsyncMode) {
