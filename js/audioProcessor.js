@@ -19,13 +19,14 @@ class AudioProcessor {
         this.bgMusicVolume = new Tone.Gain(0.5);
         this.currentBgTrack = 'none';
         this.crossfadeDuration = 2;
-        this.lowPassFilter = null;  // New low-pass filter
+        this.lowPassFilter = null;
         this.bgTracks = {
             'acoustic-guitar': 'https://tonejs.github.io/audio/berklee/guitar_chord1.mp3',
             'piano-ambient': 'https://tonejs.github.io/audio/salamander/basicPiano1.mp3',
             'soft-drums': 'https://tonejs.github.io/audio/drum-samples/loops/ominous.mp3',
             'electronic-pad': 'https://tonejs.github.io/audio/berklee/ambient_pad.mp3'
         };
+        this.isLowPassEnabled = true;
     }
 
     async initialize(isAsync = false) {
@@ -37,12 +38,11 @@ class AudioProcessor {
 
             this.mic = new Tone.UserMedia();
 
-            // Initialize low-pass filter
             this.lowPassFilter = new Tone.Filter({
                 type: "lowpass",
-                frequency: 2000, // Cut off frequencies above 2kHz
-                rolloff: -24,    // Steeper rolloff for better feedback prevention
-                Q: 1            // Quality factor
+                frequency: 2000,
+                rolloff: -24,
+                Q: 1
             }).toDestination();
 
             this.pitchShift = new Tone.PitchShift({
@@ -74,7 +74,7 @@ class AudioProcessor {
                 loopEnd: 8,
                 fadeIn: 0.5,
                 fadeOut: 0.5,
-                volume: -Infinity // Start silent
+                volume: -Infinity
             }).connect(this.bgMusicVolume);
 
             this.bgMusicVolume.toDestination();
@@ -142,7 +142,7 @@ class AudioProcessor {
 
         if (this.harmonyType === 'voice-basic') {
             this.mic.chain(
-                this.lowPassFilter,    // Add filter to chain
+                this.lowPassFilter,
                 this.pitchShift,
                 this.gainNode,
                 this.analyser,
@@ -152,9 +152,10 @@ class AudioProcessor {
             this.mic.connect(this.gainNode);
             this.gainNode.connect(this.analyser);
 
+
         } else if (this.harmonyType === 'voice-formant') {
             this.mic.chain(
-                this.lowPassFilter,    // Add filter to chain
+                this.lowPassFilter,
                 this.crossFade.a,
                 this.pitchShift,
                 this.gainNode,
@@ -167,7 +168,7 @@ class AudioProcessor {
             this.gainNode.connect(this.analyser);
 
         } else if (this.harmonyType === 'choir') {
-            this.mic.connect(this.lowPassFilter);  // Connect through filter
+            this.mic.connect(this.lowPassFilter);
             this.lowPassFilter.connect(this.analyser);
             this.lowPassFilter.connect(Tone.Destination);
 
@@ -185,7 +186,7 @@ class AudioProcessor {
         } else {
             const instrument = this.sampler[this.harmonyType];
             if (instrument) {
-                this.mic.connect(this.lowPassFilter);  // Connect through filter
+                this.mic.connect(this.lowPassFilter);
                 this.lowPassFilter.connect(this.analyser);
                 this.lowPassFilter.connect(Tone.Destination);
                 instrument.connect(this.gainNode);
@@ -332,7 +333,6 @@ class AudioProcessor {
 
     setBackgroundVolume(value) {
         if (this.bgMusicVolume) {
-            // Normalize the volume between 0 and 2, allowing for up to 200% volume
             const normalizedVolume = Math.max(0, Math.min(2, value * 2));
             this.bgMusicVolume.gain.rampTo(normalizedVolume, 0.1);
         }
@@ -363,7 +363,6 @@ class AudioProcessor {
                 this.bgMusic.volume.rampTo(-Infinity, this.crossfadeDuration, currentTime);
                 this.bgMusicNext.volume.value = -Infinity;
                 await this.bgMusicNext.start();
-                // Apply current volume setting when starting new track
                 const currentVolume = this.bgMusicVolume.gain.value;
                 this.bgMusicNext.volume.rampTo(currentVolume, this.crossfadeDuration, currentTime);
 
@@ -372,7 +371,6 @@ class AudioProcessor {
                     [this.bgMusic, this.bgMusicNext] = [this.bgMusicNext, this.bgMusic];
                 }, this.crossfadeDuration * 1000);
             } else {
-                // Apply current volume setting for initial track
                 const currentVolume = this.bgMusicVolume.gain.value;
                 this.bgMusicNext.volume.value = currentVolume;
                 await this.bgMusicNext.start();
@@ -382,6 +380,20 @@ class AudioProcessor {
             this.currentBgTrack = trackId;
         } catch (error) {
             console.error('Error loading background music:', error);
+        }
+    }
+
+    toggleLowPassFilter(enabled) {
+        this.isLowPassEnabled = enabled;
+        if (this.lowPassFilter) {
+            if (enabled) {
+                this.lowPassFilter.frequency.value = 2000;
+            } else {
+                this.lowPassFilter.frequency.value = 20000;
+            }
+        }
+        if (this.isInitialized && !this.isAsyncMode) {
+            this.setupAudioChain();
         }
     }
 }
