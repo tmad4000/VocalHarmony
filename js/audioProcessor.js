@@ -42,7 +42,7 @@ class AudioProcessor {
             // First low-pass filter stage
             this.lowPassFilter = new Tone.Filter({
                 type: "lowpass",
-                frequency: 5000,     // Lower cutoff to 5kHz
+                frequency: 3000,     // Lower cutoff to 3kHz
                 rolloff: -96,        // Extremely steep rolloff
                 Q: 0.5               // Lower Q to prevent ringing
             });
@@ -50,7 +50,7 @@ class AudioProcessor {
             // Second low-pass filter stage
             this.secondaryLowPass = new Tone.Filter({
                 type: "lowpass",
-                frequency: 5000,     // Match first filter
+                frequency: 3000,     // Match first filter
                 rolloff: -96,        // Extremely steep rolloff
                 Q: 0.5               // Lower Q to prevent ringing
             });
@@ -385,8 +385,8 @@ class AudioProcessor {
         this.isLowPassEnabled = enabled;
         if (this.lowPassFilter && this.secondaryLowPass) {
             if (enabled) {
-                this.lowPassFilter.frequency.rampTo(5000, 0.1);
-                this.secondaryLowPass.frequency.rampTo(5000, 0.1);
+                this.lowPassFilter.frequency.rampTo(3000, 0.1);
+                this.secondaryLowPass.frequency.rampTo(3000, 0.1);
                 this.lowPassFilter.Q.value = 0.5;
                 this.secondaryLowPass.Q.value = 0.5;
             } else {
